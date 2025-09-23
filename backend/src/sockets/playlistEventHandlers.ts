@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import type { PlaylistAddEvent, PlaylistNextEvent } from "../interfaces/PlaylistEvents.js";
+import type { PlaylistAddEvent, PlaylistNextEvent, PlaylistSelectEvent } from "../interfaces/PlaylistEvents.js";
 import type { PlaylistState } from "../interfaces/States.js";
 import { roomManager } from "../models/RoomManager.js";
 
@@ -70,8 +70,31 @@ function handlePlaylistNext(io: Server, { roomId, eventId }: PlaylistNextEvent) 
 };
 
 
+function handlePlaylistSelect(io: Server, { roomId, eventId, index }: PlaylistSelectEvent) {
+    const state: PlaylistState | undefined = roomManager.playlistStates.get(roomId);
+
+    // If the room doesn't exist, return
+    if (!state) {
+        console.log(`Playlist for with id ${roomId} does not exist`);
+        return;
+    }
+
+    // Ignore events if the eventId is less than or equal to what is known to the server
+    if (state.eventId > eventId) return;
+
+    // Update room's state on server
+    state.eventId++;
+    state.currentIndex = index;
+
+    console.log(`Broadcasting playlist:select in room ${roomId}`);
+    console.log(state);
+    io.to(roomId).emit("playlist:sync", state);
+};
+
+
 export function registerPlaylistEventHandlers(io: Server, socket: Socket) {
     // Playlist events
     socket.on("playlist:add", ({ roomId, eventId, videoUrl }: PlaylistAddEvent) => handlePlaylistAdd(io, { roomId, videoUrl, eventId }));
     socket.on("playlist:next", ({ roomId, eventId }: PlaylistNextEvent) => handlePlaylistNext(io, { roomId, eventId }));
+    socket.on("playlist:select", ({ roomId, eventId, index }: PlaylistSelectEvent) => handlePlaylistSelect(io, { roomId, eventId, index }))
 };

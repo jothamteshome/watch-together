@@ -11,3 +11,11 @@ export interface PlaylistNextEvent {
     roomId: string;
     eventId: number;
 };
+
+
+/** Interface for `playlist:select` events */
+export interface PlaylistSelectEvent {
+    roomId: string;
+    eventId: number;
+    index: number;
+}
