@@ -1,6 +1,6 @@
-import type { QueueState } from "../interfaces/States";
+import type { PlaylistState } from "../interfaces/States";
 
-export default class Queue {
+export default class Playlist {
     private items: string[] = [];
     private currentIndex: number = -1;
     private isLooping: boolean = false;
@@ -11,10 +11,10 @@ export default class Queue {
 
 
     public next() {
-        // Return if queue is empty
+        // Return if playlist is empty
         if (this.items.length === 0) return;
 
-        // Return if not looping and at end of queue
+        // Return if not looping and at end of playlist
         if (!this.isLooping && this.currentIndex === this.items.length - 1) return;
 
         // Move to next item
@@ -26,7 +26,7 @@ export default class Queue {
     };
 
 
-    public sync(state: QueueState) {
+    public sync(state: PlaylistState) {
         this.items = state.items;
         this.currentIndex = state.currentIndex;
         this.isLooping = state.isLooping;
@@ -38,7 +38,7 @@ export default class Queue {
     }
 
 
-    public getQueue(): string[] {
+    public getPlaylist(): string[] {
         return [ ...this.items ];
     };
 

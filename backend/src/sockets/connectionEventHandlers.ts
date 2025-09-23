@@ -1,5 +1,5 @@
 import type { Server, Socket } from "socket.io";
-import { handleQueueJoinRoomSync } from "./queueEventHandlers.js";
+import { handlePlaylistJoinRoomSync } from "./playlistEventHandlers.js";
 import { handleVideoJoinRoomSync } from "./videoEventHandlers.js";
 import { roomManager } from "../models/RoomManager.js";
 
@@ -23,7 +23,7 @@ function joinRoom(socket: Socket, roomId: string) {
   console.log(`${socket.id} joined room ${roomId}`);
 
   handleVideoJoinRoomSync(socket, roomId);
-  handleQueueJoinRoomSync(socket, roomId);
+  handlePlaylistJoinRoomSync(socket, roomId);
 }
 
 

@@ -1,12 +1,12 @@
 import type { RoomUsers } from "../interfaces/RoomUsers.js";
-import type { VideoState, QueueState } from "../interfaces/States.js";
+import type { VideoState, PlaylistState } from "../interfaces/States.js";
 import type { VideoData } from "../interfaces/VideoData.js";
 
 
 class RoomManager {
     public roomUsers: RoomUsers = {};
     public cachedVideoData: Map<string, VideoData> = new Map<string, VideoData>();
-    public queueStates: Map<string, QueueState> = new Map<string, QueueState>();
+    public playlistStates: Map<string, PlaylistState> = new Map<string, PlaylistState>();
     public videoStates: Map<string, VideoState> = new Map<string, VideoState>();
 
 
@@ -22,8 +22,8 @@ class RoomManager {
         });
 
 
-        // Set queue state
-        this.queueStates.set(roomId, {
+        // Set playlist state
+        this.playlistStates.set(roomId, {
             eventId: 0,
             items: [],
             currentIndex: -1,

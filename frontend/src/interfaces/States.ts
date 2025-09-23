@@ -1,5 +1,5 @@
-/** Interface for queue states */
-export interface QueueState {
+/** Interface for playlist states */
+export interface PlaylistState {
     items: string[];
     currentIndex: number;
     isLooping: boolean;

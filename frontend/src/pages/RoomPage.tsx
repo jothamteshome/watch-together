@@ -52,6 +52,7 @@ export default function RoomPage() {
     if (!roomId || !roomManagerRef.current) return;
 
     roomManagerRef.current.queueVideo(url);
+    setUrl("");
   };
 
 

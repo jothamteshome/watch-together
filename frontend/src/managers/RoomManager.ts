@@ -1,7 +1,7 @@
 import { BaseVideoManager } from "./BaseVideoManager";
 import YoutubeManager from "./YoutubeManager";
-import Queue from "../models/VideoQueue";
-import type { QueueState, VideoState } from "../interfaces/States";
+import Playlist from "../models/VideoPlaylist";
+import type { PlaylistState, VideoState } from "../interfaces/States";
 import { socket } from "../services/socket";
 import extractVideoId from "../utils/extractVideoId";
 
@@ -20,8 +20,8 @@ export default class RoomManager {
     private videoManagers: Record<VideoService, BaseVideoManager>;
     private onVideoChange: () => void;
     private onPlaylistUpdate: (videos: string[], index: number) => void;
-    private queueEventId = 0;
-    private queue = new Queue();
+    private playlistEventId = 0;
+    private playlist = new Playlist();
 
 
     /**
@@ -55,7 +55,7 @@ export default class RoomManager {
     private registerSocketEvents() {
         // Sync events from server
         socket.on("video:sync", (state: VideoState) => this.syncVideo(state));
-        socket.on("queue:sync", (state: QueueState) => this.syncQueue(state));
+        socket.on("playlist:sync", (state: PlaylistState) => this.syncPlaylist(state));
     }
 
 
@@ -85,15 +85,15 @@ export default class RoomManager {
     }
 
 
-    private syncQueue(state: QueueState) {
+    private syncPlaylist(state: PlaylistState) {
         // Ignore sync events if the eventId is less than or equal to what is known to the client
-        if (this.queueEventId >= state.eventId) return;
-        this.queueEventId = state.eventId;
+        if (this.playlistEventId >= state.eventId) return;
+        this.playlistEventId = state.eventId;
 
-        // Sync the local queue state with the server-provided queue state
-        this.queue.sync(state);
+        // Sync the local playlist state with the server-provided playlist state
+        this.playlist.sync(state);
 
-        const currentVideo = this.queue.current;
+        const currentVideo = this.playlist.current;
 
         // Nothing to load if current video is undefined or empty
         if (!currentVideo || currentVideo.trim() === "") return;
@@ -104,12 +104,12 @@ export default class RoomManager {
 
 
         if (!this.videoId) {
-            console.warn("syncQueue: Invalid video URL:", currentVideo);
+            console.warn("syncPlaylist: Invalid video URL:", currentVideo);
             return;
         }
 
         if (!this.currentService || !(this.currentService in this.videoManagers)) {
-            console.warn(`syncQueue: Unsupported service: ${service}`);
+            console.warn(`syncPlaylist: Unsupported service: ${service}`);
             return;
         }
 
@@ -120,12 +120,12 @@ export default class RoomManager {
             this.loadVideo(currentVideo);
         }
 
-        this.onPlaylistUpdate(this.queue.getQueue(), state.currentIndex);
+        this.onPlaylistUpdate(this.playlist.getPlaylist(), state.currentIndex);
     }
 
 
     private onVideoEnd = () => {
-        socket.emit("queue:next", { roomId: this.roomId });
+        socket.emit("playlist:next", { roomId: this.roomId });
     }
 
 
@@ -169,7 +169,7 @@ export default class RoomManager {
             return;
         }
 
-        socket.emit("queue:add", { roomId: this.roomId, videoUrl });
+        socket.emit("playlist:add", { roomId: this.roomId, videoUrl });
     }
 
 
@@ -183,7 +183,7 @@ export default class RoomManager {
      * including socket listeners and video manager instances.
      */
     destroy() {
-        socket.off("queue:sync");
+        socket.off("playlist:sync");
         socket.off("video:sync");
         socket.off("video:set");
         Object.values(this.videoManagers).forEach(manager => manager.destroy());

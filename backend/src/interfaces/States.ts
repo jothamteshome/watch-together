@@ -9,8 +9,8 @@ export interface VideoState {
 };
 
 
-/** Interface for queue states stored on server */
-export interface QueueState {
+/** Interface for playlist states stored on server */
+export interface PlaylistState {
     items: string[];
     currentIndex: number;
     isLooping: boolean;
