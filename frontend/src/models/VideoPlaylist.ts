@@ -43,4 +43,9 @@ export default class Playlist {
     };
 
 
+    public getCurrentIndex(): number {
+        return this.currentIndex;
+    }
+
+
 }

@@ -56,6 +56,12 @@ export default function RoomPage() {
   };
 
 
+  const selectPlaylistVideo = (index: number) => {
+    if (!roomId || !roomManagerRef.current) return;
+    roomManagerRef.current.selectPlaylistVideo(index);
+  }
+
+
   return (
     <div className="w-full h-full flex flex-col items-center">
 
@@ -69,7 +75,7 @@ export default function RoomPage() {
       <YoutubeVideo videoData={videoData} />
 
       <div className="w-4/5 max-w-7xl flex">
-        <Playlist videos={playlistVideos} currentIndex={currentIndex} />
+        <Playlist videos={playlistVideos} currentIndex={currentIndex} onVideoSelect={selectPlaylistVideo}/>
       </div>
       
     </div>

@@ -90,6 +90,8 @@ export default class RoomManager {
         if (this.playlistEventId >= state.eventId) return;
         this.playlistEventId = state.eventId;
 
+        const prevIndex = this.playlist.getCurrentIndex();
+
         // Sync the local playlist state with the server-provided playlist state
         this.playlist.sync(state);
 
@@ -113,10 +115,8 @@ export default class RoomManager {
             return;
         }
 
-        const manager = this.videoManagers[this.currentService];
-
         // If we don’t already have this video loaded, load it
-        if (!manager.isVideoLoaded()) {
+        if (prevIndex !== state.currentIndex) {
             this.loadVideo(currentVideo);
         }
 
@@ -175,6 +175,11 @@ export default class RoomManager {
 
     public getVideoId(): string | undefined {
         return this.videoId;
+    }
+
+
+    public selectPlaylistVideo(index: number) {
+        socket.emit("playlist:select", { roomId: this.roomId, index });
     }
 
 
