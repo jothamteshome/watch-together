@@ -95,34 +95,43 @@ export default class RoomManager {
         // Sync the local playlist state with the server-provided playlist state
         this.playlist.sync(state);
 
+        let displayIndex = state.currentIndex;
+        if (displayIndex === -1 && this.playlist.length > 0) {
+            // Keep last video visually selected when ended
+            displayIndex = this.playlist.length - 1;
+        }
 
-        // Return if the length of the playlist is 0
-        if (this.playlist.length === 0) return;
-        else if (this.playlist.getCurrentIndex() === -1) return
+        this.onPlaylistUpdate(this.playlist.getPlaylist(), displayIndex);
 
+        // Nothing to load if playlist is empty or ended
+        if (this.playlist.length === 0 || state.currentIndex === -1) return;
+
+
+        // Update local videoId and service for current video
         const currentVideo = this.playlist.current;
-
         const { videoId, service } = extractVideoId(currentVideo);
         this.videoId = videoId;
         this.currentService = service as VideoService;
 
 
+        // Return if videoId is invalid
         if (!this.videoId) {
             console.warn("syncPlaylist: Invalid video URL:", currentVideo);
             return;
         }
 
+
+        // Return if current service is not supported
         if (!this.currentService || !(this.currentService in this.videoManagers)) {
             console.warn(`syncPlaylist: Unsupported service: ${service}`);
             return;
         }
 
-        // If we don’t already have this video loaded, load it
+
+        // Only load video if index changed
         if (prevIndex !== state.currentIndex) {
             this.loadVideo(currentVideo);
         }
-
-        this.onPlaylistUpdate(this.playlist.getPlaylist(), state.currentIndex);
     }
 
 
