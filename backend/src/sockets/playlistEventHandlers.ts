@@ -36,10 +36,8 @@ function handlePlaylistAdd(io: Server, { roomId, videoUrl, eventId }: PlaylistAd
     state.eventId++;
     state.items.push(videoUrl);
 
-    // If this is the first video in the playlist, set currentIndex to 0
-    if (state.currentIndex === -1) {
-        state.currentIndex = 0;
-    }
+    // If this current state is -1, set currentIndex to latest video in playlist
+    if (state.currentIndex === -1) state.currentIndex = state.items.length - 1;
 
 
     console.log(`Broadcasting playlist:add in room ${roomId}`);
@@ -62,7 +60,13 @@ function handlePlaylistNext(io: Server, { roomId, eventId }: PlaylistNextEvent) 
 
     // Update room's state on server
     state.eventId++;
-    state.currentIndex++;
+
+    // If current index is -1 (playlist ended) or going next will exceed playlist bounds, set index to -1
+    // otherwise, increment the index
+    if (state.currentIndex === -1) state.currentIndex = -1;
+    else if (state.currentIndex >= state.items.length - 1) state.currentIndex = -1;
+    else state.currentIndex++;
+    
 
     console.log(`Broadcasting playlist:next in room ${roomId}`);
     console.log(state);
