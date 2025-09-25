@@ -1,0 +1,31 @@
+name: Frontend build check
+
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout React repo
+        uses: actions/checkout@v4
+
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      
+      - name: Build project
+        working-directory: frontend
+        env:
+          VITE_APP_BACKEND_URL: ${{ secrets.VITE_APP_BACKEND_URL }}
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
+          npm run build
