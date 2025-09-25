@@ -11,28 +11,58 @@ export function formatYoutubeDate(timestamp: number): string {
     const then = new Date(timestamp);
     const seconds = Math.floor((now.getTime() - then.getTime()) / 1000);
 
-    const intervals: [number, string][] = [
-        [60, "second"],
-        [60, "minute"],
-        [24, "hour"],
-        [30, "day"],
-        [12, "month"],
-    ];
 
-    let unit = "year";
-    let value = seconds;
-
-    for (let i = 0; i < intervals.length; i++) {
-        if (value < intervals[i][0]) {
-            unit = intervals[i][1];
-            break;
-        }
-        value = Math.floor(value / intervals[i][0]);
-        unit = intervals[i][1];
+    // Store number of seconds in each unit
+    const secondsInUnit = {
+        MINUTE: 60,
+        HOUR:   60 * 60,
+        DAY:    60 * 60 * 24,
+        WEEK:   60 * 60 * 24 * 7
     }
 
-    // pluralize if needed
-    const label = value === 1 ? unit : `${unit}s`;
+
+    // Store value for timedelta experienced
+    const timeDeltaMap = {
+        YEARS: now.getUTCFullYear() - then.getUTCFullYear(),
+        MONTHS: (now.getUTCMonth() - then.getUTCMonth()) + (now.getUTCFullYear() - then.getUTCFullYear()) * 12,
+        WEEKS: Math.floor(seconds / secondsInUnit.WEEK),
+        DAYS: Math.floor(seconds / secondsInUnit.DAY),
+        HOURS: Math.floor(seconds / secondsInUnit.HOUR),
+        MINUTES: Math.floor(seconds / secondsInUnit.MINUTE),
+        SECONDS: seconds
+    }
+
+
+    // Initialize value and unit variables
+    let value: number;
+    let unit: string;
+
+
+    if (timeDeltaMap.YEARS) {
+        value = timeDeltaMap.YEARS;
+        unit = "year";
+    } else if (timeDeltaMap.MONTHS) {
+        value = timeDeltaMap.MONTHS;
+        unit = "month";
+    } else if (timeDeltaMap.WEEKS) { 
+        value = timeDeltaMap.WEEKS;
+        unit = "week";
+    } else if (timeDeltaMap.DAYS) {
+        value = timeDeltaMap.DAYS;
+        unit = "day";
+    } else if (timeDeltaMap.HOURS) {
+        value = timeDeltaMap.HOURS;
+        unit = "hour";
+    } else if (timeDeltaMap.MINUTES) {
+        value = timeDeltaMap.MINUTES;
+        unit = "minute";
+    } else {
+        value = timeDeltaMap.SECONDS;
+        unit = "second";
+    }
+
+    // Compute label for plural words
+    const label: string = value === 1 ? unit : `${unit}s`;
 
     return `${value} ${label} ago`;
 }

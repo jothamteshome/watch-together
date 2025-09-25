@@ -8,6 +8,7 @@ import { formatCount, formatYoutubeDate } from "../../utils/formatVideoInfo";
 interface DescriptionStatsProps {
     videoPublishedAt: number;
     videoViewCount: number;
+    descriptionExpanded: boolean;
 }
 
 
@@ -33,13 +34,23 @@ interface VideoDescriptionProps {
 /**
  * Renders video stats (views and publish date).
  */
-function DescriptionStats({ videoPublishedAt, videoViewCount }: DescriptionStatsProps) {
+function DescriptionStats({ videoPublishedAt, videoViewCount, descriptionExpanded }: DescriptionStatsProps) {
     const viewsText = videoViewCount === 1 ? "view" : "views";
 
+    const date: Date = new Date(videoPublishedAt);
+    const expandedDateString: string = date.toLocaleString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+    });
+
+
+    const expandedViewCount: string = `${videoViewCount.toLocaleString()} ${viewsText}`;
+
     return (
-        <div className="flex">
-            <p className="font-bold text-sm">{`${formatCount(videoViewCount, 1)} ${viewsText}`}</p>
-            <p className="font-bold text-sm ml-2">{formatYoutubeDate(videoPublishedAt)}</p>
+        <div className="flex" title={descriptionExpanded ? undefined : `${expandedViewCount} • ${expandedDateString}`}>
+            <p className="font-bold text-sm">{descriptionExpanded ? `${expandedViewCount}` : `${formatCount(videoViewCount, 1)} ${viewsText}`}</p>
+            <p className="font-bold text-sm ml-2">{descriptionExpanded ? `${expandedDateString}` : `${formatYoutubeDate(videoPublishedAt)}`}</p>
         </div>
     );
 }
@@ -80,14 +91,16 @@ export default function VideoDescription({ maxChars = 200, videoDescription, vid
     const isLong = videoDescription.length > maxChars;
     const videoDescriptionText = expanded || !isLong ? videoDescription : videoDescription?.slice(0, maxChars) + "...";
 
+    const cursorStyle = expanded ? "cursor-default" : "cursor-pointer";
+
     return (
-        <div className="flex flex-col rounded-xl bg-neutral-800 mt-2 p-4">
-            <DescriptionStats videoPublishedAt={videoPublishedAt!} videoViewCount={videoViewCount!} />
+        <div className={`flex flex-col rounded-xl bg-neutral-800 mt-2 p-4 ${cursorStyle}`} onClick={expanded ? () => null : () => setExpanded(true)}>
+            <DescriptionStats videoPublishedAt={videoPublishedAt!} videoViewCount={videoViewCount!} descriptionExpanded={expanded} />
             <VideoDescriptionText videoDescription={videoDescriptionText} />
             {
                 isLong &&
-                <button className="font-light text-xs"
-                    onClick={() => setExpanded(!expanded)}
+                <button className="font-light text-xs cursor-pointer"
+                onClick={expanded ? () => setExpanded(false) : () => null}
                 >
                     {expanded ? "Show Less" : "Show More"}
                 </button>
