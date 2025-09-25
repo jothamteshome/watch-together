@@ -33,8 +33,13 @@ export default class Playlist {
     }
 
 
-    get current(): string | undefined {
+    get current(): string {
         return this.items[this.currentIndex];
+    }
+
+
+    get length(): number {
+        return this.items.length;
     }
 
 

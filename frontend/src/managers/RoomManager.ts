@@ -95,10 +95,12 @@ export default class RoomManager {
         // Sync the local playlist state with the server-provided playlist state
         this.playlist.sync(state);
 
-        const currentVideo = this.playlist.current;
 
-        // Nothing to load if current video is undefined or empty
-        if (!currentVideo || currentVideo.trim() === "") return;
+        // Return if the length of the playlist is 0
+        if (this.playlist.length === 0) return;
+        else if (this.playlist.getCurrentIndex() === -1) return
+
+        const currentVideo = this.playlist.current;
 
         const { videoId, service } = extractVideoId(currentVideo);
         this.videoId = videoId;
