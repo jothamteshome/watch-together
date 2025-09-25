@@ -55,7 +55,7 @@ export default function PlaylistVideo({ videoUrl, watching, index, onVideoSelect
 
     return (
         <div className={`flex w-full h-20 rounded-xl mt-2 cursor-pointer ${backgroundClass}`} onClick={() => onVideoSelect(index)}>
-            <p className="w-6 flex items-center justify-center text-xs">{index}</p>
+            <p className="w-6 flex items-center justify-center text-xs">{index + 1}</p>
             <PlaylistVideoThumbnail thumbnail={videoData.videoThumbnail} />
             <PlaylistVideoInfo videoTitle={videoData.videoTitle} channelTitle={videoData.channelTitle} />
         </div>
