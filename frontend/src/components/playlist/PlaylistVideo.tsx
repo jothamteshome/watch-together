@@ -6,7 +6,8 @@ interface PlaylistVideoProps {
     videoUrl: string;
     watching: boolean;
     index: number;
-    onVideoSelect: (index: number) => void;
+    ref: React.RefObject<HTMLDivElement | null> | null;
+    onVideoSelect: () => void;
 };
 
 
@@ -35,7 +36,7 @@ function PlaylistVideoInfo({ videoTitle, channelTitle }: { videoTitle: string; c
 };
 
 
-export default function PlaylistVideo({ videoUrl, watching, index, onVideoSelect }: PlaylistVideoProps) {
+export default function PlaylistVideo({ videoUrl, watching, index, onVideoSelect, ref }: PlaylistVideoProps) {
     const backgroundClass = watching ? "bg-neutral-700" : "bg-neutral-800";
     const [videoData, setVideoData] = useState<PlaylistVideoData>({ videoTitle: "", channelTitle: "", videoThumbnail: "" });
 
@@ -54,7 +55,7 @@ export default function PlaylistVideo({ videoUrl, watching, index, onVideoSelect
     }, [videoUrl]);
 
     return (
-        <div className={`flex w-full h-20 rounded-xl mt-2 cursor-pointer ${backgroundClass}`} onClick={() => onVideoSelect(index)}>
+        <div ref={ref} className={`flex w-full h-20 rounded-xl mt-2 cursor-pointer ${backgroundClass}`} onClick={onVideoSelect}>
             <p className="w-6 flex items-center justify-center text-xs">{index + 1}</p>
             <PlaylistVideoThumbnail thumbnail={videoData.videoThumbnail} />
             <PlaylistVideoInfo videoTitle={videoData.videoTitle} channelTitle={videoData.channelTitle} />

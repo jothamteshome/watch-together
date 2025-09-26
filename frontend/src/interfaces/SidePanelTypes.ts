@@ -1,0 +1,1 @@
+export type SidePanelTypes = "video" | "chat";

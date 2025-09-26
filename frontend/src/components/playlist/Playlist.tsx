@@ -1,19 +1,29 @@
+import { useEffect, useRef } from "react";
 import PlaylistVideo from "./PlaylistVideo";
+
 
 interface PlayistProps {
     videos: string[];
     currentIndex: number;
     onVideoSelect: (index: number) => void;
+    showPlaylist: boolean;
 }
 
-export default function Playist({ videos, currentIndex, onVideoSelect }: PlayistProps) {
+
+export default function Playist({ videos, currentIndex, onVideoSelect, showPlaylist }: PlayistProps) {
+    const hidePlaylistStyle: string = videos.length > 0 && showPlaylist ? "flex" : "hidden";
+    const currentVideoRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        currentVideoRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [videos]);
+
     return (
-        videos.length > 0 &&
-        <div className="w-1/2 flex flex-col overflow-y-auto h-96 rounded-xl bg-neutral-800 mt-2 px-2 pb-2">
+        <div className={`w-full h-full ${hidePlaylistStyle} flex-col overflow-y-auto overscroll-none rounded-xl`}>
             {
                 videos.map((videoUrl: string, i: number) =>
                 (
-                    <PlaylistVideo key={`${videoUrl}-${i}`} watching={i === currentIndex} videoUrl={videoUrl} index={i} onVideoSelect={onVideoSelect} />
+                    <PlaylistVideo ref={i === currentIndex ? currentVideoRef : null} key={`${videoUrl}-${i}`} watching={i === currentIndex} videoUrl={videoUrl} index={i} onVideoSelect={() => onVideoSelect(i)} />
                 ))
             }
         </div>
