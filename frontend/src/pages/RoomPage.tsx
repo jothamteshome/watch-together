@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import SearchBar from "../components/room/SearchBar";
 import RoomInfo from "../components/room/RoomInfo";
 import YoutubeVideo from "../components/youtube/YoutubeVideo";
+import type ChatMessage from "../interfaces/ChatMessage";
 import RoomManager from "../managers/RoomManager";
 import type VideoData from "../models/VideoData";
 import SidePanel from "../components/side-panel/SidePanel";
@@ -15,7 +16,8 @@ export default function RoomPage() {
   const [url, setUrl] = useState("");
   const [videoData, setVideoData] = useState<VideoData>();
   const [playlistVideos, setPlaylistVideos] = useState<string[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(-1);
+  const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(-1);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [showSidePanel, setShowSidePanel] = useState<boolean>(false);
 
   useEffect(() => {
@@ -40,10 +42,17 @@ export default function RoomPage() {
       if (!roomId || !roomManagerRef.current) return;
 
       setPlaylistVideos(videos);
-      setCurrentIndex(index);
+      setCurrentPlaylistIndex(index);
     };
 
-    roomManagerRef.current = new RoomManager(roomId, onVideoChanged, updatePlaylistUI);
+    
+    const updateChatUI = (messages: ChatMessage[]) => {
+      if (!roomId || !roomManagerRef.current) return;
+
+      setChatMessages(messages);
+    }
+
+    roomManagerRef.current = new RoomManager(roomId, onVideoChanged, updatePlaylistUI, updateChatUI);
 
     return () => roomManagerRef.current?.destroy();
   }, [roomId]);
@@ -63,6 +72,12 @@ export default function RoomPage() {
   }
 
 
+  const sendChatMessage = (msg: string) => {
+    if (!roomId || !roomManagerRef.current) return;
+    roomManagerRef.current.sendChatMessage(msg);
+  }
+
+
   return (
     <div className="w-full h-full flex">
       {/* Main Content */}
@@ -77,8 +92,10 @@ export default function RoomPage() {
 
       <SidePanel
         videos={playlistVideos}
-        currentVideoIndex={currentIndex}
+        currentPlaylistIndex={currentPlaylistIndex}
         selectPlaylistVideo={selectPlaylistVideo}
+        chatMessages={chatMessages}
+        sendChatMessage={sendChatMessage}
         showSidePanel={showSidePanel}
         setPanelVisibility={(panelVisible: boolean) => setShowSidePanel(panelVisible)}
       />

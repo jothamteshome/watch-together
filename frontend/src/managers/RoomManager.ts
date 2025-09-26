@@ -1,6 +1,8 @@
 import { BaseVideoManager } from "./BaseVideoManager";
+import ChatManager from "./ChatManager";
 import PlaylistManager from "./PlaylistManager";
 import YoutubeManager from "./YoutubeManager";
+import type ChatMessage from "../interfaces/ChatMessage";
 import type { PlaylistState, VideoState } from "../interfaces/States";
 import type { VideoService } from "../interfaces/VideoService";
 import type VideoServiceInformation from "../interfaces/VideoServiceInformation";
@@ -19,6 +21,7 @@ export default class RoomManager {
     private currentService?: VideoService;
     private videoManagers: Record<VideoService, BaseVideoManager>;
     private playlistManager: PlaylistManager;
+    private chatManager: ChatManager;
     private onVideoChange: () => void;
 
 
@@ -28,7 +31,12 @@ export default class RoomManager {
      *
      * @param roomId - The unique identifier for the room.
      */
-    constructor(roomId: string, onVideoChange: () => void, updatePlaylistUI: (videos: string[], index: number) => void) {
+    constructor(
+        roomId: string, 
+        onVideoChange: () => void, 
+        updatePlaylistUI: (videos: string[], index: number) => void,
+        updateChatUI: (messages: ChatMessage[]) => void
+    ) {
         this.roomId = roomId;
         this.onVideoChange = onVideoChange;
 
@@ -45,6 +53,9 @@ export default class RoomManager {
         // Create the playlist manager instance
         this.playlistManager = new PlaylistManager(updatePlaylistUI);
 
+        // Create the chat manager instance
+        this.chatManager = new ChatManager(updateChatUI);
+
         this.registerSocketEvents();
     }
 
@@ -59,6 +70,7 @@ export default class RoomManager {
         // Sync events from server
         socket.on("video:sync", (state: VideoState) => this.syncVideo(state));
         socket.on("playlist:sync", (state: PlaylistState) => this.syncPlaylist(state));
+        socket.on("chat:sync", (msg: ChatMessage) => this.chatManager.add(msg));
     }
 
 
@@ -186,6 +198,11 @@ export default class RoomManager {
         if (!result) return;
 
         socket.emit("playlist:add", { roomId: this.roomId, videoUrl });
+    }
+
+
+    public sendChatMessage = (msg: string) => {
+        socket.emit("chat:message", { roomId: this.roomId, msg });
     }
 
 
