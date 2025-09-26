@@ -1,4 +1,5 @@
 import type { Server, Socket } from "socket.io";
+import { handleChatJoinRoom, handleChatLeaveRoom, handleChatDisconnect } from "./chatEventHandlers.js";
 import { handlePlaylistJoinRoomSync } from "./playlistEventHandlers.js";
 import { handleVideoJoinRoomSync } from "./videoEventHandlers.js";
 import { roomManager } from "../models/RoomManager.js";
@@ -9,10 +10,10 @@ import { roomManager } from "../models/RoomManager.js";
  * @param socket The current socket
  * @param roomId The current roomId to handle join events for
  */
-function joinRoom(socket: Socket, roomId: string) {
+function joinRoom(io: Server, socket: Socket, roomId: string) {
   // Initialize roomUsers set if missing
-  if (!roomManager.roomUsers[roomId]) { 
-    roomManager.roomUsers[roomId] = new Set(); 
+  if (!roomManager.roomUsers[roomId]) {
+    roomManager.roomUsers[roomId] = new Set();
   };
   roomManager.roomUsers[roomId].add(socket.id);
 
@@ -24,15 +25,18 @@ function joinRoom(socket: Socket, roomId: string) {
 
   handleVideoJoinRoomSync(socket, roomId);
   handlePlaylistJoinRoomSync(socket, roomId);
+  handleChatJoinRoom(io, socket, roomId);
 }
 
 
-function leaveRoom(socket: Socket, roomId: string) {
+function leaveRoom(io: Server, socket: Socket, roomId: string) {
   socket.leave(roomId);
   console.log(`${socket.id} left room ${roomId}`);
 
-    // Remove user from room users
-    disconnectCleanup(socket, roomId, roomManager.roomUsers[roomId]);
+  handleChatLeaveRoom(io, socket, roomId);
+
+  // Remove user from room users
+  disconnectCleanup(socket, roomId, roomManager.roomUsers[roomId]);
 }
 
 
@@ -40,11 +44,12 @@ function leaveRoom(socket: Socket, roomId: string) {
  * Handle disconnection events from socket.IO
  * @param socket The current socket being disconnected from
  */
-function disconnect(socket: Socket) {
+function disconnect(io: Server, socket: Socket) {
   console.log("User disconnected:", socket.id);
 
   // Run cleanup function for each room in socket
   for (const [roomId, userSet] of Object.entries(roomManager.roomUsers)) {
+    handleChatDisconnect(io, socket, roomId);
     disconnectCleanup(socket, roomId, userSet);
   }
 }
@@ -71,7 +76,7 @@ function disconnectCleanup(socket: Socket, roomId: string, userSet?: Set<string>
   // If users list for room is empty, delete room entirely
   if (currentRoomUsers.size === 0) {
     delete roomManager.roomUsers[roomId];
-    setTimeout(() => { 
+    setTimeout(() => {
       roomManager.videoStates.delete(roomId);
       console.log(`Room ${roomId} deleted because it is empty`);
     }, 1000 * 60 * 60); // 1 hour timeout before deleting room
@@ -83,11 +88,11 @@ export default function registerConnectionEventHandlers(io: Server, socket: Sock
   console.log("New client connected:", socket.id);
 
   // Join room
-  socket.on("room:join", ({ roomId }: { roomId: string }) => joinRoom(socket, roomId));
+  socket.on("room:join", ({ roomId }: { roomId: string }) => joinRoom(io, socket, roomId));
 
   // Leave room
-  socket.on("room:leave", ({ roomId }: { roomId: string }) => leaveRoom(socket, roomId));
+  socket.on("room:leave", ({ roomId }: { roomId: string }) => leaveRoom(io, socket, roomId));
 
   // Disconnect
-  socket.on("disconnect", () => disconnect(socket));
+  socket.on("disconnect", () => disconnect(io, socket));
 }

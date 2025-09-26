@@ -91,7 +91,7 @@ export default function VideoDescription({ maxChars = 200, videoDescription, vid
     const isLong = videoDescription.length > maxChars;
     const videoDescriptionText = expanded || !isLong ? videoDescription : videoDescription?.slice(0, maxChars) + "...";
 
-    const cursorStyle = expanded ? "cursor-default" : "cursor-pointer";
+    const cursorStyle = expanded && videoDescription ? "cursor-default" : "cursor-pointer";
 
     return (
         <div className={`flex flex-col rounded-xl bg-neutral-800 mt-2 p-4 ${cursorStyle}`} onClick={expanded ? () => null : () => setExpanded(true)}>

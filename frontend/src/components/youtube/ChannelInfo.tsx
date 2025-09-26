@@ -1,12 +1,5 @@
+import UserIcon from "../user/UserIcon";
 import { formatCount } from "../../utils/formatVideoInfo";
-
-
-/**
- * Props for ChannelIcon component.
- */
-interface ChannelIconProps {
-    channelIcon: string;
-}
 
 
 /**
@@ -26,18 +19,6 @@ interface ChannelInfoProps {
     channelTitle: string;
     channelUrl: string;
     subscriberCount: number;
-}
-
-
-/**
- * Renders the channel's icon.
- */
-function ChannelIcon({ channelIcon }: ChannelIconProps) {
-    return (
-        <div className="aspect-square max-h-10">
-            <img className="rounded-full" src={channelIcon} />
-        </div>
-    );
 }
 
 
@@ -62,7 +43,7 @@ function ChannelTitle({ channelTitle, subscriberCount }: ChannelTitleProps) {
 export default function ChannelInfo({ channelIcon, channelTitle, channelUrl, subscriberCount }: ChannelInfoProps) {
     return (
         <a className="flex items-center h-12" href={channelUrl}>
-            <ChannelIcon channelIcon={channelIcon} />
+            <UserIcon src={channelIcon} />
             <ChannelTitle channelTitle={channelTitle!} subscriberCount={subscriberCount!} />
         </a>
     );
