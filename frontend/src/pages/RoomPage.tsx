@@ -35,14 +35,14 @@ export default function RoomPage() {
     };
 
 
-    const onPlaylistUpdate = (videos: string[], index: number) => {
+    const updatePlaylistUI = (videos: string[], index: number) => {
       if (!roomId || !roomManagerRef.current) return;
 
       setPlaylistVideos(videos);
       setCurrentIndex(index);
     };
 
-    roomManagerRef.current = new RoomManager(roomId, onVideoChanged, onPlaylistUpdate);
+    roomManagerRef.current = new RoomManager(roomId, onVideoChanged, updatePlaylistUI);
 
     return () => roomManagerRef.current?.destroy();
   }, [roomId]);
