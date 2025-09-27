@@ -3,6 +3,7 @@ import { handleChatJoinRoom, handleChatLeaveRoom, handleChatDisconnect } from ".
 import { handlePlaylistJoinRoomSync } from "./playlistEventHandlers.js";
 import { handleVideoJoinRoomSync } from "./videoEventHandlers.js";
 import { roomManager } from "../models/RoomManager.js";
+import generateUser from "../utils/generateUser.js";
 
 
 /**
@@ -16,6 +17,7 @@ function joinRoom(io: Server, socket: Socket, roomId: string) {
     roomManager.roomUsers[roomId] = new Set();
   };
   roomManager.roomUsers[roomId].add(socket.id);
+  roomManager.userObjects.set(socket.id, generateUser(socket.id));
 
   // Join the room
   socket.join(roomId);
@@ -71,6 +73,7 @@ function disconnectCleanup(socket: Socket, roomId: string, userSet?: Set<string>
   if (currentRoomUsers.has(socket.id)) {
     console.log(`Deleting user ${socket.id} from users`);
     currentRoomUsers.delete(socket.id);
+    roomManager.userObjects.delete(socket.id);
   }
 
   // If users list for room is empty, delete room entirely

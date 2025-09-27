@@ -4,4 +4,5 @@ export default interface ChatMessage {
     authorIcon?: string;
     text: string;
     timestamp: number;
+    isSystemMessage: boolean;
 }
