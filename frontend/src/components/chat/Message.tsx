@@ -5,6 +5,7 @@ import type ChatMessage from "../../interfaces/ChatMessage";
 interface MessageMetadataProps {
     author?: string;
     timestamp: number;
+    isSystemMessage: boolean;
 }
 
 
@@ -17,6 +18,7 @@ interface ContentColumnProps {
     author?: string;
     timestamp: number;
     messageText: string;
+    isSystemMessage: boolean;
 }
 
 
@@ -31,7 +33,7 @@ interface ChatMessageProps {
 }
 
 
-function MessageMetadata({ author, timestamp }: MessageMetadataProps) {
+function MessageMetadata({ author, timestamp, isSystemMessage }: MessageMetadataProps) {
     const date: Date = new Date(timestamp);
     const formattedDateString: string = date.toLocaleString(undefined, {
         year: "numeric",
@@ -44,7 +46,7 @@ function MessageMetadata({ author, timestamp }: MessageMetadataProps) {
         minute: "2-digit"
     });
 
-    const systemAuthorStyle: string = author === "[SYSTEM]" ? "text-red-500" : "text-white";
+    const systemAuthorStyle: string = isSystemMessage ? "text-red-500" : "text-white";
 
     return (
         <div className={`w-full flex items-end py-1 ${systemAuthorStyle}`}>
@@ -64,10 +66,10 @@ function MessageText({ messageText }: MessageTextProps) {
 }
 
 
-function ContentColumn({ author, timestamp, messageText }: ContentColumnProps) {
+function ContentColumn({ author, timestamp, messageText, isSystemMessage }: ContentColumnProps) {
     return (
         <div className="flex-1 flex-col">
-            <MessageMetadata author={author} timestamp={timestamp} />
+            <MessageMetadata author={author} timestamp={timestamp} isSystemMessage={isSystemMessage} />
             <MessageText messageText={messageText} />
         </div>
     );
@@ -89,7 +91,7 @@ export default function Message({ message, ref }: ChatMessageProps) {
     return (
         <div ref={ref} className="w-full flex mt-4">
             <IconColumn authorIcon={message.authorIcon} />  
-            <ContentColumn author={message.author} timestamp={message.timestamp} messageText={message.text} />
+            <ContentColumn author={message.author} timestamp={message.timestamp} messageText={message.text} isSystemMessage={message.isSystemMessage} />
         </div>
     );
 }
