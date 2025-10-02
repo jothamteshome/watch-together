@@ -1,14 +1,21 @@
 import { Server, Socket } from "socket.io";
 import type { PlaylistAddEvent, PlaylistNextEvent, PlaylistSelectEvent } from "../interfaces/PlaylistEvents.js";
 import type { PlaylistState } from "../interfaces/States.js";
-import { roomManager } from "../models/RoomManager.js";
+import { serverManager } from "../models/RoomManager.js";
+import type RoomState from "../interfaces/RoomState.js";
 
 
 export function handlePlaylistJoinRoomSync(socket: Socket, roomId: string) {
-    // Send current playlist state to client
-    const playlistState = roomManager.playlistStates.get(roomId);
+    // If room state doesn't exist, return
+    const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
+    if (!roomState) {
+        console.log(`Room state ${roomId} does not exist`);
+        return;
+    }
+
 
     // If playlist state doesn't exist, return
+    const playlistState: PlaylistState | null = roomState.getPlaylistState();
     if (!playlistState) {
         console.log(`Playlist for room ${roomId} does not exist`);
         return;
@@ -21,78 +28,102 @@ export function handlePlaylistJoinRoomSync(socket: Socket, roomId: string) {
 
 
 function handlePlaylistAdd(io: Server, { roomId, videoUrl, eventId }: PlaylistAddEvent) {
-    const state: PlaylistState | undefined = roomManager.playlistStates.get(roomId);
-
-    // If the room doesn't exist, return
-    if (!state) {
-        console.log(`Playlist for with id ${roomId} does not exist`);
+    // If room state doesn't exist, return
+    const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
+    if (!roomState) {
+        console.log(`Room state ${roomId} does not exist`);
         return;
     }
 
+
+    // If playlist state doesn't exist, return
+    const playlistState: PlaylistState | null = roomState.getPlaylistState();
+    if (!playlistState) {
+        console.log(`Playlist for room ${roomId} does not exist`);
+        return;
+    }
+
+
     // Ignore events if the eventId is less than or equal to what is known to the server
-    if (state.eventId > eventId) return;
+    if (playlistState.eventId > eventId) return;
 
     // Update room's state on server
-    state.eventId++;
-    state.items.push(videoUrl);
+    playlistState.eventId++;
+    playlistState.items.push(videoUrl);
 
     // If this current state is -1, set currentIndex to latest video in playlist
-    if (state.currentIndex === -1) state.currentIndex = state.items.length - 1;
+    if (playlistState.currentIndex === -1) {
+        playlistState.currentIndex = playlistState.items.length - 1;
+    }
 
 
     console.log(`Broadcasting playlist:add in room ${roomId}`);
-    console.log(state);
-    io.to(roomId).emit("playlist:sync", state);
+    console.log(playlistState);
+    io.to(roomId).emit("playlist:sync", playlistState);
 };
 
 
 function handlePlaylistNext(io: Server, { roomId, eventId }: PlaylistNextEvent) {
-    const state: PlaylistState | undefined = roomManager.playlistStates.get(roomId);
+    // If room state doesn't exist, return
+    const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
+    if (!roomState) {
+        console.log(`Room state ${roomId} does not exist`);
+        return;
+    }
 
-    // If the room doesn't exist, return
-    if (!state) {
-        console.log(`Playlist for with id ${roomId} does not exist`);
+
+    // If playlist state doesn't exist, return
+    const playlistState: PlaylistState | null = roomState.getPlaylistState();
+    if (!playlistState) {
+        console.log(`Playlist for room ${roomId} does not exist`);
         return;
     }
 
     // Ignore events if the eventId is less than or equal to what is known to the server
-    if (state.eventId > eventId) return;
+    if (playlistState.eventId > eventId) return;
 
     // Update room's state on server
-    state.eventId++;
+    playlistState.eventId++;
 
     // If current index is -1 (playlist ended) or going next will exceed playlist bounds, set index to -1
     // otherwise, increment the index
-    if (state.currentIndex === -1) state.currentIndex = -1;
-    else if (state.currentIndex >= state.items.length - 1) state.currentIndex = -1;
-    else state.currentIndex++;
+    if (playlistState.currentIndex === -1) playlistState.currentIndex = -1;
+    else if (playlistState.currentIndex >= playlistState.items.length - 1) playlistState.currentIndex = -1;
+    else playlistState.currentIndex++;
     
 
     console.log(`Broadcasting playlist:next in room ${roomId}`);
-    console.log(state);
-    io.to(roomId).emit("playlist:sync", state);
+    console.log(playlistState);
+    io.to(roomId).emit("playlist:sync", playlistState);
 };
 
 
 function handlePlaylistSelect(io: Server, { roomId, eventId, index }: PlaylistSelectEvent) {
-    const state: PlaylistState | undefined = roomManager.playlistStates.get(roomId);
+    // If room state doesn't exist, return
+    const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
+    if (!roomState) {
+        console.log(`Room state ${roomId} does not exist`);
+        return;
+    }
 
-    // If the room doesn't exist, return
-    if (!state) {
-        console.log(`Playlist for with id ${roomId} does not exist`);
+
+    // If playlist state doesn't exist, return
+    const playlistState: PlaylistState | null = roomState.getPlaylistState();
+    if (!playlistState) {
+        console.log(`Playlist for room ${roomId} does not exist`);
         return;
     }
 
     // Ignore events if the eventId is less than or equal to what is known to the server
-    if (state.eventId > eventId) return;
+    if (playlistState.eventId > eventId) return;
 
     // Update room's state on server
-    state.eventId++;
-    state.currentIndex = index;
+    playlistState.eventId++;
+    playlistState.currentIndex = index;
 
     console.log(`Broadcasting playlist:select in room ${roomId}`);
-    console.log(state);
-    io.to(roomId).emit("playlist:sync", state);
+    console.log(playlistState);
+    io.to(roomId).emit("playlist:sync", playlistState);
 };
 
 

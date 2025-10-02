@@ -1,15 +1,13 @@
-import type { RoomUsers } from "../interfaces/RoomUsers.js";
+import RoomState from "../interfaces/RoomState.js";
 import type { VideoState, PlaylistState } from "../interfaces/States.js";
 import type User from "../interfaces/User.js";
 import type { VideoData } from "../interfaces/VideoData.js";
 
 
-class RoomManager {
-    public roomUsers: RoomUsers = {};
-    public userObjects: Map<string, User> = new Map<string, User>();
-    public cachedVideoData: Map<string, VideoData> = new Map<string, VideoData>();
-    public playlistStates: Map<string, PlaylistState> = new Map<string, PlaylistState>();
-    public videoStates: Map<string, VideoState> = new Map<string, VideoState>();
+class ServerManager {
+    public serverUsers: Map<string, User> = new Map<string, User>();
+    public videoCache: Map<string, VideoData> = new Map<string, VideoData>();
+    public serverRooms: Map<string, RoomState> = new Map<string, RoomState>();
 
 
     constructor() {
@@ -19,31 +17,35 @@ class RoomManager {
             icon: `https://api.dicebear.com/7.x/identicon/svg?seed=system`
         }
 
-        this.userObjects.set('system', systemUser);
+        this.serverUsers.set('system', systemUser);
     }
 
 
     public createRoom(roomId: string) {
-        // Set room state
-        this.videoStates.set(roomId, {
+        const roomState: RoomState = new RoomState();
+
+        const videoState: VideoState = {
             eventId: 0,
             videoUrl: null,
             currentTime: 0,
             isPlaying: false,
             playbackRate: 1,
             lastUpdate: Date.now()
-        });
+        }
 
-
-        // Set playlist state
-        this.playlistStates.set(roomId, {
+        const playlistState: PlaylistState = {
             eventId: 0,
             items: [],
             currentIndex: -1,
             isLooping: false
-        });
+        }
+
+        roomState.setVideoState(videoState);
+        roomState.setPlaylistState(playlistState);
+
+        serverManager.serverRooms.set(roomId, roomState);
     }
 };
 
 
-export const roomManager = new RoomManager();
+export const serverManager = new ServerManager();

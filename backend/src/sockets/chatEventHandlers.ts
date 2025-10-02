@@ -3,13 +3,13 @@ import { Server, Socket } from "socket.io";
 import type { ChatMessageEvent } from "../interfaces/ChatEvents.js";
 import type ChatMessage from "../interfaces/ChatMessage.js";
 import type User from "../interfaces/User.js";
-import { roomManager } from "../models/RoomManager.js";
+import { serverManager } from "../models/RoomManager.js";
 
 
 
 export function handleChatJoinRoom(io: Server, socket: Socket, roomId: string) {
-    const systemUser: User | undefined = roomManager.userObjects.get('system');
-    const leavingUser: User | undefined = roomManager.userObjects.get(socket.id);
+    const systemUser: User | undefined = serverManager.serverUsers.get('system');
+    const leavingUser: User | undefined = serverManager.serverUsers.get(socket.id);
     const leavingUserName: string = leavingUser ? leavingUser.username : socket.id;
 
     const joinMessage: ChatMessage = {
@@ -28,7 +28,7 @@ export function handleChatJoinRoom(io: Server, socket: Socket, roomId: string) {
 
 
 function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMessageEvent) {
-    const user: User | undefined = roomManager.userObjects.get(socket.id);
+    const user: User | undefined = serverManager.serverUsers.get(socket.id);
 
     // Build user message
     const userMessage: ChatMessage = {
@@ -48,8 +48,8 @@ function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMess
 
 
 export function handleChatLeaveRoom(io: Server, socket: Socket, roomId: string) {
-    const systemUser: User | undefined = roomManager.userObjects.get('system');
-    const leavingUser: User | undefined = roomManager.userObjects.get(socket.id);
+    const systemUser: User | undefined = serverManager.serverUsers.get('system');
+    const leavingUser: User | undefined = serverManager.serverUsers.get(socket.id);
     const leavingUserName: string = leavingUser ? leavingUser.username : socket.id;
 
     const leaveMessage: ChatMessage = {
@@ -68,8 +68,8 @@ export function handleChatLeaveRoom(io: Server, socket: Socket, roomId: string) 
 
 
 export function handleChatDisconnect(io: Server, socket: Socket, roomId: string) {
-    const systemUser: User | undefined = roomManager.userObjects.get('system');
-    const leavingUser: User | undefined = roomManager.userObjects.get(socket.id);
+    const systemUser: User | undefined = serverManager.serverUsers.get('system');
+    const leavingUser: User | undefined = serverManager.serverUsers.get(socket.id);
     const leavingUserName: string = leavingUser ? leavingUser.username : socket.id;
 
     const disconnectMessage: ChatMessage = {

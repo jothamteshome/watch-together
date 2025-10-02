@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { roomManager } from "../models/RoomManager.js";
+import { serverManager } from "../models/RoomManager.js";
 import type { VideoData, ChannelData } from "../interfaces/VideoData.js";
 
 const router = Router();
@@ -82,8 +82,8 @@ const getVideoData = async (videoId: string): Promise<VideoData> => {
 router.get("/video/:videoId", async (req, res) => {
     const { videoId } = req.params;
 
-    if (roomManager.cachedVideoData.has(videoId)) {
-        res.json(roomManager.cachedVideoData.get(videoId));
+    if (serverManager.videoCache.has(videoId)) {
+        res.json(serverManager.videoCache.get(videoId));
         return;
     }
 
@@ -92,11 +92,11 @@ router.get("/video/:videoId", async (req, res) => {
         const videoData: VideoData = await getVideoData(videoId);
 
         // Update cache with new video data
-        roomManager.cachedVideoData.set(videoId, videoData);
+        serverManager.videoCache.set(videoId, videoData);
 
         // Set a timeout to delete the cached video data after 1 hour
         setTimeout(() => {
-            roomManager.cachedVideoData.delete(videoId);
+            serverManager.videoCache.delete(videoId);
         }, 1000 * 60 * 60)
 
         res.json(videoData);
