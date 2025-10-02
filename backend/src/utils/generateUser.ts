@@ -5,6 +5,7 @@ import type User from "../interfaces/User";
 const usernameConfig: Config = {
   dictionaries: [adjectives, colors, animals],
   separator: '',
+  style: "capital",
   length: 3,
 };
 
