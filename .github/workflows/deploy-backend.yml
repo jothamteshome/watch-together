@@ -31,13 +31,7 @@ jobs:
         # Assign a new public IPv4
         aws ec2 modify-network-interface-attribute \
           --network-interface-id $INTERFACE_ID \
-          --no-source-dest-check
-          
-        # Note: Using auto-assigned public IP for ENI
-        PUBLIC_IP=$(aws ec2 describe-instances \
-          --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
-          --query 'Reservations[0].Instances[0].PublicIpAddress' \
-          --output text)
+          --associate-public-ip-address
 
 
     - name: Kill all tmux sessions
@@ -145,7 +139,7 @@ jobs:
           --document-name "AWS-RunShellScript" \
           --parameters '{"commands":[
             "sudo -u ec2-user bash -c '\''cd /home/ec2-user/watch-together/backend && tmux new-session -d -s watch-together-backend'\''",
-            "sudo -u ec2-user bash -c '\''tmux send-keys -t watch-together-backend \"PORT=${{ secrets.BACKEND_PORT }} YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }} npm run start\" C-m'\''"
+            "sudo -u ec2-user bash -c '\''tmux send-keys -t watch-together-backend \"BACKEND_PORT=${{ secrets.BACKEND_PORT }} YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }} npm run start\" C-m'\''"
           ]}' \
           --comment "Start server in tmux" \
           --query 'Command.CommandId' \
@@ -183,5 +177,4 @@ jobs:
         # Unassign the public IP
         aws ec2 modify-network-interface-attribute \
           --network-interface-id $INTERFACE_ID \
-          --no-source-dest-check \
           --no-associate-public-ip-address
