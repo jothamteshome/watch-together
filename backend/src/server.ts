@@ -44,10 +44,10 @@ io.on("connection", (socket) => {
   registerChatEventHandlers(io, socket);
 });
 
-const PORT = process.env.PORT;
+const BACKEND_PORT = process.env.BACKEND_PORT;
 
-if (!PORT) {
-  throw new Error("PORT not set in production!");
+if (!BACKEND_PORT) {
+  throw new Error("BACKEND_PORT not set in production!");
 }
 
-httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+httpServer.listen(BACKEND_PORT, () => console.log(`Server running on port ${BACKEND_PORT}`));
