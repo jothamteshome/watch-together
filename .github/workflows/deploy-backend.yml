@@ -22,16 +22,13 @@ jobs:
     - name: Assign temporary public IPv4 to EC2 instance
       id: assign-ip
       run: |
-        # Allocate a new public IP for the instance (auto-assigned)
-        INTERFACE_ID=$(aws ec2 describe-instances \
-          --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
-          --query 'Reservations[0].Instances[0].NetworkInterfaces[0].NetworkInterfaceId' \
-          --output text)
+        # Allocate Elastic IP
+        ALLOCATION_ID=$(aws ec2 allocate-address --domain vpc --query 'AllocationId' --output text)
 
-        # Assign a new public IPv4
-        aws ec2 modify-network-interface-attribute \
-          --network-interface-id $INTERFACE_ID \
-          --associate-public-ip-address
+        # Associate with instance
+        aws ec2 associate-address \
+          --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
+          --allocation-id $ALLOCATION_ID
 
 
     - name: Kill all tmux sessions
@@ -169,12 +166,6 @@ jobs:
     - name: Remove temporary public IPv4
       if: always()
       run: |
-        INTERFACE_ID=$(aws ec2 describe-instances \
-          --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
-          --query 'Reservations[0].Instances[0].NetworkInterfaces[0].NetworkInterfaceId' \
-          --output text)
+        aws ec2 disassociate-address --association-id $ASSOCIATION_ID
+        aws ec2 release-address --allocation-id $ALLOCATION_ID
 
-        # Unassign the public IP
-        aws ec2 modify-network-interface-attribute \
-          --network-interface-id $INTERFACE_ID \
-          --no-associate-public-ip-address
