@@ -31,6 +31,71 @@ jobs:
           --allocation-id $ALLOCATION_ID
 
 
+    - name: Wait for SSM agent to reconnect
+      run: |
+        echo "⏳ Waiting for SSM agent to reconnect..."
+
+        INSTANCE_ID=${{ secrets.EC2_INSTANCE_ID }}
+        MAX_ATTEMPTS=24
+        ATTEMPT=1
+
+        while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+          echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: Checking SSM connectivity..."
+          
+          # Check PingStatus
+          STATUS=$(aws ssm describe-instance-information \
+            --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+            --query 'InstanceInformationList[0].PingStatus' \
+            --output text 2>/dev/null || echo "null")
+          
+          if [ "$STATUS" = "Online" ]; then
+            echo "✅ SSM agent is online!"
+
+            # Optional: run a small test command
+            TEST_COMMAND_ID=$(aws ssm send-command \
+              --instance-ids $INSTANCE_ID \
+              --document-name "AWS-RunShellScript" \
+              --parameters '{"commands":["echo SSM_TEST_SUCCESS"]}' \
+              --query 'Command.CommandId' \
+              --output text)
+
+            # Wait for the test command to succeed
+            MAX_TEST_ATTEMPTS=6
+            TEST_ATTEMPT=1
+            while [ $TEST_ATTEMPT -le $MAX_TEST_ATTEMPTS ]; do
+              TEST_STATUS=$(aws ssm list-command-invocations \
+                --command-id $TEST_COMMAND_ID \
+                --instance-id $INSTANCE_ID \
+                --query "CommandInvocations[0].Status" \
+                --output text 2>/dev/null || echo "null")
+
+              if [ "$TEST_STATUS" = "Success" ]; then
+                echo "✅ SSM test command successful!"
+                exit 0
+              elif [ "$TEST_STATUS" = "Failed" ]; then
+                echo "❌ SSM test command failed. Retrying outer loop..."
+                break
+              fi
+
+              echo "Test command status: $TEST_STATUS ($TEST_ATTEMPT/$MAX_TEST_ATTEMPTS)"
+              sleep 5
+              TEST_ATTEMPT=$((TEST_ATTEMPT + 1))
+            done
+
+            echo "⚠️ SSM test command did not succeed but agent is online. Proceeding..."
+            exit 0
+          else
+            echo "SSM status: $STATUS (waiting...)"
+          fi
+
+          sleep 10
+          ATTEMPT=$((ATTEMPT + 1))
+        done
+
+        echo "❌ SSM agent failed to come online within expected time."
+        exit 1
+
+
     - name: Kill all tmux sessions
       run: |
         command_id=$(aws ssm send-command \
