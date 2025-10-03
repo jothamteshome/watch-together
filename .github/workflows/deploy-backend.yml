@@ -1,4 +1,4 @@
-name: Deploy backend to EC2 via AWS SSM
+name: Deploy backend to EC2 via SSH
 
 on:
   push:
@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -17,141 +18,149 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
 
-
-    - name: Update SSM Parameters
-      run: |
-        aws ssm put-parameter --name "/watch-together/backend/youtube-api-key" --value "${{ secrets.YOUTUBE_API_KEY }}" --type "SecureString" --overwrite
-        aws ssm put-parameter --name "/watch-together/backend/port" --value "${{ secrets.BACKEND_PORT }}" --type "String" --overwrite
-
-
-    - name: Kill all tmux sessions
-      run: |
-        command_id=$(aws ssm send-command \
-          --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
-          --document-name "AWS-RunShellScript" \
-          --parameters '{"commands":["sudo -u ec2-user bash -c '\''tmux kill-server 2>/dev/null || true'\''"]}' \
-          --comment "Kill old tmux sessions" \
-          --query 'Command.CommandId' \
-          --output text)
-        echo "command_id=$command_id" >> $GITHUB_ENV
-
     
-    - name: Wait for `Kill all tmux sessions` to complete
+    - name: Get runner public IP
+      id: get_ip
       run: |
-        while true; do
-          status=$(aws ssm list-command-invocations \
-            --command-id ${{ env.command_id }} \
-            --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
-            --query "CommandInvocations[0].Status" \
-            --output text)
-          echo "Status: $status"
-          if [[ "$status" == "Success" ]]; then
+        # Get public IP of GitHub Actions runner
+        MY_IP=$(curl -s https://checkip.amazonaws.com)/32
+        echo "runner-ip=$MY_IP" >> $GITHUB_OUTPUT
+
+
+    - name: Add temporary SSH rule to security group
+      id: add_sg
+      run: |
+        SECURITY_GROUP_ID=${{ secrets.EC2_SG_ID }}
+        IP=${{ steps.get_ip.outputs.runner-ip }}
+
+        echo "Adding $IP to security group $SECURITY_GROUP_ID..."
+        aws ec2 authorize-security-group-ingress \
+          --group-id $SECURITY_GROUP_ID \
+          --protocol tcp \
+          --port 22 \
+          --cidr $IP
+
+
+    - name: Assign temporary public IPv4 to EC2 instance
+      id: assign-ip
+      run: |
+        # Allocate Elastic IP
+        ALLOCATION_ID=$(aws ec2 allocate-address --domain vpc --query 'AllocationId' --output text)
+        echo "allocation-id=$ALLOCATION_ID" >> $GITHUB_OUTPUT
+
+        # Associate with instance
+        aws ec2 associate-address \
+          --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
+          --allocation-id $ALLOCATION_ID
+
+        # Set public ip for future use
+        PUBLIC_IP=$(aws ec2 describe-addresses \
+          --allocation-ids $ALLOCATION_ID \
+          --query 'Addresses[0].PublicIp' \
+          --output text)
+        echo "public-ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+
+
+    - name: Wait for SSH connectivity
+      run: |
+        PUBLIC_IP="${{ steps.assign-ip.outputs.public-ip }}"
+        echo "Waiting for SSH on $PUBLIC_IP..."
+        max_attempts=24
+        attempt=1
+        while [ $attempt -le $max_attempts ]; do
+          if nc -z -w5 $PUBLIC_IP 22; then
+            echo "✅ SSH is reachable"
             break
-          elif [[ "$status" == "Cancelled" || "$status" == "Failed" || "$status" == "TimedOut" ]]; then
-            echo "Command failed with status: $status"
-            exit 1
           fi
-          sleep 5
+          echo "Attempt $attempt/$max_attempts: SSH not reachable yet..."
+          attempt=$((attempt+1))
+          sleep 10
         done
+        if [ $attempt -gt $max_attempts ]; then
+          echo "❌ SSH not reachable after 4 minutes"
+          exit 1
+        fi
+
+
+    - name: Kill all running tmux sessions
+      uses: appleboy/ssh-action@v1.2.2
+      with:
+        host: ${{ steps.assign-ip.outputs.public-ip }}
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          tmux kill-server 2>/dev/null || true
 
 
     - name: Pull latest code on EC2
-      run: |
-        command_id=$(aws ssm send-command \
-          --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
-          --document-name "AWS-RunShellScript" \
-          --parameters '{"commands":[
-            "sudo -u ec2-user bash -c '\''mkdir -p /home/ec2-user/watch-together'\''",
-            "sudo -u ec2-user bash -c '\''cd /home/ec2-user/watch-together && git config --global --add safe.directory /home/ec2-user/watch-together && git checkout main && git pull origin main'\''"
-          ]}' \
-          --comment "Update code" \
-          --query 'Command.CommandId' \
-          --output text)
-        echo "command_id=$command_id" >> $GITHUB_ENV
-
-
-    - name: Wait for `Pull latest code on EC2` to complete
-      run: |
-        while true; do
-          status=$(aws ssm list-command-invocations \
-            --command-id ${{ env.command_id }} \
-            --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
-            --query "CommandInvocations[0].Status" \
-            --output text)
-          echo "Status: $status"
-          if [[ "$status" == "Success" ]]; then
-            break
-          elif [[ "$status" == "Cancelled" || "$status" == "Failed" || "$status" == "TimedOut" ]]; then
-            echo "Command failed with status: $status"
-            exit 1
+      uses: appleboy/ssh-action@v1.2.2
+      with:
+        host: ${{ steps.assign-ip.outputs.public-ip }}
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          if [ -d "/home/ec2-user/watch-together/.git" ]; then
+            echo "Repo exists, resetting to remote..."
+            cd /home/ec2-user/watch-together
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
+          else
+            echo "Repo does not exist, cloning..."
+            git clone https://github.com/jothamteshome/watch-together.git
+            cd /home/ec2-user/watch-together
           fi
-          sleep 5
-        done
+
+          # Ensure git considers this folder safe
+          git config --global --add safe.directory /home/ec2-user/watch-together
 
 
     - name: Install dependencies & build
-      run: |
-        command_id=$(aws ssm send-command \
-          --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
-          --document-name "AWS-RunShellScript" \
-          --parameters '{"commands":[
-            "sudo -u ec2-user bash -c '\''source /etc/profile.d/load_ssm_env.sh'\''",
-            "sudo -u ec2-user bash -c '\''cd /home/ec2-user/watch-together/backend && npm install && npm run build'\''"
-          ]}' \
-          --comment "Install dependencies and build" \
-          --query 'Command.CommandId' \
-          --output text)
-        echo "command_id=$command_id" >> $GITHUB_ENV
+      uses: appleboy/ssh-action@v1.2.2
+      with:
+        host: ${{ steps.assign-ip.outputs.public-ip }}
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd /home/ec2-user/watch-together/backend
 
-    
-    - name: Wait for `Install dependencies & build` to complete
-      run: |
-        while true; do
-          status=$(aws ssm list-command-invocations \
-            --command-id ${{ env.command_id }} \
-            --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
-            --query "CommandInvocations[0].Status" \
-            --output text)
-          echo "Status: $status"
-          if [[ "$status" == "Success" ]]; then
-            break
-          elif [[ "$status" == "Cancelled" || "$status" == "Failed" || "$status" == "TimedOut" ]]; then
-            echo "Command failed with status: $status"
-            exit 1
-          fi
-          sleep 5
-        done
-
-    
-    - name: Start tmux session and run server
-      run: |
-        command_id=$(aws ssm send-command \
-          --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
-          --document-name "AWS-RunShellScript" \
-          --parameters '{"commands":[
-            "sudo -u ec2-user bash -c '\''cd /home/ec2-user/watch-together/backend && tmux new-session -d -s watch-together-backend'\''",
-            "sudo -u ec2-user bash -c '\''tmux send-keys -t watch-together-backend \"npm run start\" C-m'\''"
-          ]}' \
-          --comment "Start server in tmux" \
-          --query 'Command.CommandId' \
-          --output text)
-        echo "command_id=$command_id" >> $GITHUB_ENV
+          npm install
+          npm run build
 
 
-    - name: Wait for `Start tmux session and run server` to complete
+    - name: Start tmux session and start server
+      uses: appleboy/ssh-action@v1.2.2
+      with:
+        host: ${{ steps.assign-ip.outputs.public-ip }}
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd /home/ec2-user/watch-together/backend
+
+          tmux new-session -d -s watch-together-backend
+
+          tmux send-keys -t watch-together-backend "BACKEND_PORT=${{ secrets.BACKEND_PORT }} YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }} npm run start" C-m
+
+
+    - name: Remove temporary SSH rule
+      if: always()
       run: |
-        while true; do
-          status=$(aws ssm list-command-invocations \
-            --command-id ${{ env.command_id }} \
-            --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
-            --query "CommandInvocations[0].Status" \
-            --output text)
-          echo "Status: $status"
-          if [[ "$status" == "Success" ]]; then
-            break
-          elif [[ "$status" == "Cancelled" || "$status" == "Failed" || "$status" == "TimedOut" ]]; then
-            echo "Command failed with status: $status"
-            exit 1
-          fi
-          sleep 5
-        done
+        SECURITY_GROUP_ID=${{ secrets.EC2_SG_ID }}
+        IP=${{ steps.get_ip.outputs.runner-ip }}
+
+        echo "Removing $IP from security group $SECURITY_GROUP_ID..."
+        aws ec2 revoke-security-group-ingress \
+          --group-id $SECURITY_GROUP_ID \
+          --protocol tcp \
+          --port 22 \
+          --cidr $IP
+
+
+    - name: Remove temporary public IPv4
+      if: always()
+      run: |
+        ASSOCIATION_ID=$(aws ec2 describe-addresses \
+          --allocation-ids ${{ steps.assign-ip.outputs.allocation-id }} \
+          --query 'Addresses[0].AssociationId' --output text)
+        aws ec2 disassociate-address --association-id $ASSOCIATION_ID
+        aws ec2 release-address --allocation-id ${{ steps.assign-ip.outputs.allocation-id }}
