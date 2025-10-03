@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -18,10 +19,26 @@ jobs:
         aws-region: us-east-1
 
 
-    - name: Update SSM Parameters
+    - name: Assign temporary public IPv4 to EC2 instance
+      id: assign-ip
       run: |
-        aws ssm put-parameter --name "/watch-together/backend/youtube-api-key" --value "${{ secrets.YOUTUBE_API_KEY }}" --type "SecureString" --overwrite
-        aws ssm put-parameter --name "/watch-together/backend/port" --value "${{ secrets.BACKEND_PORT }}" --type "String" --overwrite
+        # Allocate a new public IP for the instance (auto-assigned)
+        INTERFACE_ID=$(aws ec2 describe-instances \
+          --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
+          --query 'Reservations[0].Instances[0].NetworkInterfaces[0].NetworkInterfaceId' \
+          --output text)
+
+        # Assign a new public IPv4
+        aws ec2 modify-network-interface-attribute \
+          --network-interface-id $INTERFACE_ID \
+          --no-source-dest-check \
+          --attachment "{\"AttachmentId\":\"$INTERFACE_ID\",\"DeleteOnTermination\":false}"
+          
+        # Note: Using auto-assigned public IP for ENI
+        PUBLIC_IP=$(aws ec2 describe-instances \
+          --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
+          --query 'Reservations[0].Instances[0].PublicIpAddress' \
+          --output text)
 
 
     - name: Kill all tmux sessions
@@ -95,7 +112,6 @@ jobs:
           --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
           --document-name "AWS-RunShellScript" \
           --parameters '{"commands":[
-            "sudo -u ec2-user bash -c '\''source /etc/profile.d/load_ssm_env.sh'\''",
             "sudo -u ec2-user bash -c '\''cd /home/ec2-user/watch-together/backend && npm install && npm run build'\''"
           ]}' \
           --comment "Install dependencies and build" \
@@ -130,7 +146,7 @@ jobs:
           --document-name "AWS-RunShellScript" \
           --parameters '{"commands":[
             "sudo -u ec2-user bash -c '\''cd /home/ec2-user/watch-together/backend && tmux new-session -d -s watch-together-backend'\''",
-            "sudo -u ec2-user bash -c '\''tmux send-keys -t watch-together-backend \"npm run start\" C-m'\''"
+            "sudo -u ec2-user bash -c '\''tmux send-keys -t watch-together-backend \"PORT=${{ secrets.BACKEND_PORT }} YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }} npm run start\" C-m'\''"
           ]}' \
           --comment "Start server in tmux" \
           --query 'Command.CommandId' \
@@ -155,3 +171,18 @@ jobs:
           fi
           sleep 5
         done
+
+
+    - name: Remove temporary public IPv4
+      if: always()
+      run: |
+        INTERFACE_ID=$(aws ec2 describe-instances \
+          --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
+          --query 'Reservations[0].Instances[0].NetworkInterfaces[0].NetworkInterfaceId' \
+          --output text)
+
+        # Unassign the public IP
+        aws ec2 modify-network-interface-attribute \
+          --network-interface-id $INTERFACE_ID \
+          --no-source-dest-check \
+          --no-associate-public-ip-address
