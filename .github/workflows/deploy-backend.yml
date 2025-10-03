@@ -31,8 +31,7 @@ jobs:
         # Assign a new public IPv4
         aws ec2 modify-network-interface-attribute \
           --network-interface-id $INTERFACE_ID \
-          --no-source-dest-check \
-          --attachment "{\"AttachmentId\":\"$INTERFACE_ID\",\"DeleteOnTermination\":false}"
+          --no-source-dest-check
           
         # Note: Using auto-assigned public IP for ENI
         PUBLIC_IP=$(aws ec2 describe-instances \
