@@ -50,4 +50,4 @@ if (!BACKEND_PORT) {
   throw new Error("BACKEND_PORT not set in production!");
 }
 
-httpServer.listen(BACKEND_PORT, () => console.log(`Server running on port ${BACKEND_PORT}`));
+httpServer.listen(parseInt(BACKEND_PORT), '127.0.0.1', () => console.log(`Server running on port ${BACKEND_PORT}`));
