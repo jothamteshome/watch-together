@@ -1,1 +1,1 @@
-export type SidePanelTypes = "video" | "chat";
+export type SidePanelTypes = "playlist" | "chat";
