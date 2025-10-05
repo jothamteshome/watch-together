@@ -41,29 +41,9 @@ jobs:
           --cidr $IP
 
 
-    - name: Assign temporary public IPv4 to EC2 instance
-      id: assign-ip
-      run: |
-        # Allocate Elastic IP
-        ALLOCATION_ID=$(aws ec2 allocate-address --domain vpc --query 'AllocationId' --output text)
-        echo "allocation-id=$ALLOCATION_ID" >> $GITHUB_OUTPUT
-
-        # Associate with instance
-        aws ec2 associate-address \
-          --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
-          --allocation-id $ALLOCATION_ID
-
-        # Set public ip for future use
-        PUBLIC_IP=$(aws ec2 describe-addresses \
-          --allocation-ids $ALLOCATION_ID \
-          --query 'Addresses[0].PublicIp' \
-          --output text)
-        echo "public-ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
-
-
     - name: Wait for SSH connectivity
       run: |
-        PUBLIC_IP="${{ steps.assign-ip.outputs.public-ip }}"
+        PUBLIC_IP="${{ secrets.EC2_HOST }}"
         echo "Waiting for SSH on $PUBLIC_IP..."
         max_attempts=24
         attempt=1
@@ -85,7 +65,7 @@ jobs:
     - name: Kill all running tmux sessions
       uses: appleboy/ssh-action@v1.2.2
       with:
-        host: ${{ steps.assign-ip.outputs.public-ip }}
+        host: ${{ secrets.EC2_HOST }}
         username: ec2-user
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
@@ -95,7 +75,7 @@ jobs:
     - name: Pull latest code on EC2
       uses: appleboy/ssh-action@v1.2.2
       with:
-        host: ${{ steps.assign-ip.outputs.public-ip }}
+        host: ${{ secrets.EC2_HOST }}
         username: ec2-user
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
@@ -118,7 +98,7 @@ jobs:
     - name: Install dependencies & build
       uses: appleboy/ssh-action@v1.2.2
       with:
-        host: ${{ steps.assign-ip.outputs.public-ip }}
+        host: ${{ secrets.EC2_HOST }}
         username: ec2-user
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
@@ -131,7 +111,7 @@ jobs:
     - name: Start tmux session and start server
       uses: appleboy/ssh-action@v1.2.2
       with:
-        host: ${{ steps.assign-ip.outputs.public-ip }}
+        host: ${{ secrets.EC2_HOST }}
         username: ec2-user
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
@@ -154,13 +134,3 @@ jobs:
           --protocol tcp \
           --port 22 \
           --cidr $IP
-
-
-    - name: Remove temporary public IPv4
-      if: always()
-      run: |
-        ASSOCIATION_ID=$(aws ec2 describe-addresses \
-          --allocation-ids ${{ steps.assign-ip.outputs.allocation-id }} \
-          --query 'Addresses[0].AssociationId' --output text)
-        aws ec2 disassociate-address --association-id $ASSOCIATION_ID
-        aws ec2 release-address --allocation-id ${{ steps.assign-ip.outputs.allocation-id }}
