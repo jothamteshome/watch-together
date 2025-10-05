@@ -19,6 +19,11 @@ export default function RoomPage() {
   const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(-1);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [showSidePanel, setShowSidePanel] = useState<boolean>(false);
+  const [chatNotifications, setChatNotifications] = useState<number>(0);
+  const [playlistNotifications, setPlaylistNotifications] = useState<number>(0);
+
+  const chatMessageLengthRef = useRef(0);
+  const playlistVideoLengthRef = useRef(0);
 
   useEffect(() => {
     if (!roomId) return;
@@ -41,7 +46,11 @@ export default function RoomPage() {
     const updatePlaylistUI = (videos: string[], index: number) => {
       if (!roomId || !roomManagerRef.current) return;
 
+      const newNotifications: number = Math.max(videos.length - playlistVideoLengthRef.current, 0);
+
       setPlaylistVideos(videos);
+      playlistVideoLengthRef.current = videos.length;
+      setPlaylistNotifications(prev => prev + newNotifications);
       setCurrentPlaylistIndex(index);
     };
 
@@ -49,7 +58,11 @@ export default function RoomPage() {
     const updateChatUI = (messages: ChatMessage[]) => {
       if (!roomId || !roomManagerRef.current) return;
 
+      const newNotifications: number = Math.max(messages.length - chatMessageLengthRef.current, 0);
+
       setChatMessages(messages);
+      chatMessageLengthRef.current = messages.length;
+      setChatNotifications(prev => prev + newNotifications);
     }
 
     roomManagerRef.current = new RoomManager(roomId, onVideoChanged, updatePlaylistUI, updateChatUI);
@@ -95,6 +108,10 @@ export default function RoomPage() {
         currentPlaylistIndex={currentPlaylistIndex}
         selectPlaylistVideo={selectPlaylistVideo}
         chatMessages={chatMessages}
+        chatNotifications={chatNotifications}
+        playlistNotifications={playlistNotifications}
+        clearChatNotifications={() => setChatNotifications(0)}
+        clearPlaylistNotifications={() => setPlaylistNotifications(0)}
         sendChatMessage={sendChatMessage}
         showSidePanel={showSidePanel}
         setPanelVisibility={(panelVisible: boolean) => setShowSidePanel(panelVisible)}
