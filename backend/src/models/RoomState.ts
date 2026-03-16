@@ -1,4 +1,4 @@
-import type { PlaylistState, VideoState } from "./States";
+import type { PlaylistState, VideoState } from "../interfaces/States.js";
 
 
 export default class RoomState {
@@ -16,7 +16,7 @@ export default class RoomState {
     }
 
     public getUsers(): Set<string> {
-        return this.users
+        return this.users;
     }
 
     public getVideoState(): VideoState | null {
