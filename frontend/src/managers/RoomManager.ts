@@ -3,21 +3,23 @@ import ChatManager from "./ChatManager";
 import PlaylistManager from "./PlaylistManager";
 import YoutubeManager from "./YoutubeManager";
 import type ChatMessage from "../interfaces/ChatMessage";
+import type BaseVideoInfo from "../interfaces/BaseVideoInfo";
 import type { PlaylistState, VideoState } from "../interfaces/States";
 import type { VideoService } from "../interfaces/VideoService";
-import type VideoServiceInformation from "../interfaces/VideoServiceInformation";
 import { socket } from "../services/socket";
-import extractVideoId from "../utils/extractVideoId";
 
 
 
 /**
  * Manages video playback and synchronization for a room.
  * Acts as a coordinator between socket events and video service managers (e.g. YouTube).
+ *
+ * Service-specific logic (URL detection, video loading, info fetching) is fully
+ * delegated to the individual managers, keeping this class service-agnostic.
  */
 export default class RoomManager {
     private roomId: string;
-    private videoId?: string;
+    private currentVideoUrl?: string;
     private currentService?: VideoService;
     private videoManagers: Record<VideoService, BaseVideoManager>;
     private playlistManager: PlaylistManager;
@@ -26,217 +28,156 @@ export default class RoomManager {
 
 
 
-    /**
-     * Creates a new RoomManager instance for a specific room.
-     *
-     * @param roomId - The unique identifier for the room.
-     */
     constructor(
-        roomId: string, 
-        onVideoChange: () => void, 
+        roomId: string,
+        onVideoChange: () => void,
         updatePlaylistUI: (videos: string[], index: number) => void,
         updateChatUI: (messages: ChatMessage[]) => void
     ) {
         this.roomId = roomId;
         this.onVideoChange = onVideoChange;
 
-        // Create the video managers record
         this.videoManagers = {
             youtube: new YoutubeManager(this.roomId, this.onVideoEnd)
-        }
+        };
 
         for (const [service, manager] of Object.entries(this.videoManagers)) {
             manager.initPlayer(`${service}-player`);
         }
 
-
-        // Create the playlist manager instance
         this.playlistManager = new PlaylistManager(updatePlaylistUI);
-
-        // Create the chat manager instance
         this.chatManager = new ChatManager(updateChatUI);
 
         this.registerSocketEvents();
     }
 
 
-    /**
-     * Registers socket listeners to handle incoming server events
-     * (e.g. video synchronization, playlist synchronizaton).
-     *
-     * @private
-     */
     private registerSocketEvents = (): void => {
-        // Sync events from server
         socket.on("video:sync", (state: VideoState) => this.syncVideo(state));
         socket.on("playlist:sync", (state: PlaylistState) => this.syncPlaylist(state));
         socket.on("chat:sync", (msg: ChatMessage) => this.chatManager.add(msg));
-    }
+    };
 
 
     /**
-     * Syncs the local player state with the server-provided video state.
-     *
-     * @param state - The current state of the video, including URL, time, etc.
-     * @private
+     * Syncs the local player with the server-provided video state.
+     * If the URL changed, loads the new video; otherwise applies drift correction only.
      */
     private syncVideo = (state: VideoState): void => {
-        const result = this.resolveVideo(state.videoUrl);
+        if (!state.videoUrl) return;
 
-        // Check validity of videoUrl
-        if (!result) return;
-        this.videoId = result.videoId;
-        this.currentService = result.service
+        const manager = this.resolveManager(state.videoUrl);
+        if (!manager) return;
 
-        // Sync video
-        this.videoManagers[this.currentService!].sync(state);
-        this.onVideoChange();
-    }
+        const urlChanged = state.videoUrl !== this.currentVideoUrl;
+        this.currentVideoUrl = state.videoUrl;
+        this.currentService = manager.getServiceName();
+
+        if (urlChanged) {
+            manager.loadVideo(state.videoUrl, state.currentTime, state.eventId);
+            this.onVideoChange();
+        } else {
+            manager.sync(state);
+        }
+    };
 
 
     /**
-     * Syncs the local playlist state with the server-provided playlist state.
-     *
-     * @param state - The current state of the playlist, including items, currentIndex, etc.
-     * @private
+     * Syncs the local playlist state. Loads the new video when the active index changes.
      */
     private syncPlaylist = (state: PlaylistState): void => {
-        // Update local videoId and service for current video
-        const currentVideo = state.items[state.currentIndex];
-        const result = this.resolveVideo(currentVideo);
-
-        // Check validity of videoUrl
-        if (!result) return;
-        this.videoId = result.videoId;
-        this.currentService = result.service
-
-        // Get index before sync occurs
         const prevIndex = this.playlistManager.currentIndex;
 
-        // Sync playlist
         this.playlistManager.sync(state);
 
-        // Nothing to load if playlist is empty or ended
         if (this.playlistManager.length === 0 || state.currentIndex === -1) return;
 
-        // Only load video if index changed
-        if (prevIndex !== state.currentIndex) {
+        // Only emit video:set if the index changed AND the URL differs from what's already loaded.
+        // Without the URL check, a joining user receives playlist:sync (prevIndex -1 → 0) and
+        // incorrectly triggers loadVideo, resetting currentTime to 0 even though video:sync already
+        // loaded the video at the correct timestamp.
+        if (prevIndex !== state.currentIndex && this.playlistManager.currentItem !== this.currentVideoUrl) {
             this.loadVideo(this.playlistManager.currentItem);
         }
-    }
+    };
 
 
     /**
-     * Loads a new video into the current room. Validates the URL and notifies the server.
-     *
-     * @param videoUrl - The full video URL to load (e.g. YouTube link).
-     * @private
+     * Validates a video URL and emits video:set to the server.
+     * Video loading into the player happens via the video:sync response.
      */
-    private loadVideo = (videoUrl: string) => {
-        const result = this.resolveVideo(videoUrl);
+    private loadVideo = (videoUrl: string): void => {
+        const manager = this.resolveManager(videoUrl);
+        if (!manager) return;
 
-        // Check validity of videoUrl
-        if (!result) return;
-        this.videoId = result.videoId;
-        this.currentService = result.service
-
-        socket.emit("video:set", { roomId: this.roomId, videoUrl });
-    }
+        socket.emit("video:set", {
+            roomId: this.roomId,
+            videoUrl,
+            videoService: manager.getServiceName()
+        });
+    };
 
 
     /**
-     * Validates a video URL and extracts its service information.
-     * 
-     * @param videoUrl - The full URL of the video to validate.
-     * @returns An object containing `videoId` and `service` if valid, otherwise `null`.
-     * @private
-     * 
-     * This function also alerts the user if the URL is invalid or if the service
-     * is unsupported. It centralizes video validation logic for reuse.
+     * Finds the manager that can handle the given URL.
+     * Alerts the user and returns null if no manager supports the URL.
      */
-    private resolveVideo = (videoUrl: string): VideoServiceInformation | null => {
-        const { videoId, service } = extractVideoId(videoUrl);
-
-        if (!videoId) {
-            alert(`Invalid video URL: ${videoUrl}`);
-            return null;
+    private resolveManager = (videoUrl: string): BaseVideoManager | null => {
+        for (const manager of Object.values(this.videoManagers)) {
+            if (manager.canHandle(videoUrl)) {
+                return manager;
+            }
         }
-        if (!service || !(service in this.videoManagers)) {
-            alert(`${service} is an unsupported service`);
-            return null;
-        }
-
-        return { videoId, service: service as VideoService };
-    }
+        alert(`Unsupported video URL: ${videoUrl}`);
+        return null;
+    };
 
 
-    /**
-     * Handler for when the current video finishes playing.
-     * 
-     * Emits a `playlist:next` event to the server, instructing it to advance
-     * to the next video in the room's playlist.
-     * 
-     * @private
-     */
     private onVideoEnd = (): void => {
         socket.emit("playlist:next", { roomId: this.roomId });
-    }
+    };
 
 
     /**
-     * Adds a video to the room's playlist.
-     * 
-     * @param videoUrl - The URL of the video to queue.
-     * 
-     * This function first validates the video URL via `resolveVideo`. If valid,
-     * it emits a `playlist:add` event to the server to add the video to the playlist.
+     * Adds a video to the room's playlist after validating the URL.
      */
-    public queueVideo = (videoUrl: string) => {
-        const result = this.resolveVideo(videoUrl);
-
-        // Check validity of videoUrl
-        if (!result) return;
-
+    public queueVideo = (videoUrl: string): void => {
+        if (!this.resolveManager(videoUrl)) return;
         socket.emit("playlist:add", { roomId: this.roomId, videoUrl });
-    }
+    };
 
 
-    public sendChatMessage = (msg: string) => {
+    public sendChatMessage = (msg: string): void => {
         socket.emit("chat:message", { roomId: this.roomId, msg });
-    }
+    };
 
 
     /**
-     * Retrieves the currently loaded video ID.
-     * 
-     * @returns The video ID string if a video is currently loaded, otherwise undefined.
+     * Fetches metadata for the currently active video from the appropriate service manager.
+     * Returns null if no video is loaded or the fetch fails.
      */
-    public getVideoId = (): string | undefined => {
-        return this.videoId;
-    }
+    public fetchCurrentVideoInfo = async (): Promise<BaseVideoInfo | null> => {
+        if (!this.currentVideoUrl || !this.currentService) return null;
+        const manager = this.videoManagers[this.currentService];
+        if (!manager) return null;
+        return manager.fetchVideoInfo(this.currentVideoUrl);
+    };
 
 
     /**
      * Selects a specific video in the playlist by index.
-     * 
-     * @param index - The index of the video to select in the playlist.
-     * 
-     * Emits a `playlist:select` event to the server to update the room's
-     * current video.
      */
     public selectPlaylistVideo = (index: number): void => {
         socket.emit("playlist:select", { roomId: this.roomId, index });
-    }
+    };
 
 
-    /**
-     * Cleans up all resources associated with this RoomManager,
-     * including socket listeners and video manager instances.
-     */
     destroy() {
         socket.off("playlist:sync");
         socket.off("video:sync");
-        socket.off("video:set");
+        socket.off("chat:sync");
         Object.values(this.videoManagers).forEach(manager => manager.destroy());
     }
 }
+
+
