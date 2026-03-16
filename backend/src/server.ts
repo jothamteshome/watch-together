@@ -4,7 +4,7 @@ import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import roomRoutes from "./routes/roomRoutes.js";
-import youtubeApiRoutes from "./routes/youtubeApiRoutes.js"
+import videoApiRoutes from "./routes/videoApiRoutes.js"
 import { registerChatEventHandlers } from './sockets/chatEventHandlers.js';
 import registerConnectionEventHandlers from './sockets/connectionEventHandlers.js';
 import { registerPlaylistEventHandlers } from './sockets/playlistEventHandlers.js';
@@ -29,7 +29,7 @@ app.use(express.json());
 
 // Routes
 app.use("/v1/rooms", roomRoutes);
-app.use("/v1/youtube-api", youtubeApiRoutes)
+app.use("/v1/video-api", videoApiRoutes)
 app.get('/health', (req, res) => {
   console.log(`[${getFormattedDate()}] health check - OK`);
   res.status(200).send("OK");
