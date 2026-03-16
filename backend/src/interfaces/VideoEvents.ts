@@ -2,6 +2,7 @@
 export interface VideoSetEvent {
     roomId: string;
     videoUrl: string;
+    videoService?: string;
 };
 
 
