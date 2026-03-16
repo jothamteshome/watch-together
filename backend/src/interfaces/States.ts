@@ -2,6 +2,7 @@
 export interface VideoState {
     eventId: number;
     videoUrl: string | null;
+    videoService: string | null;
     currentTime: number;
     isPlaying: boolean;
     playbackRate: number;

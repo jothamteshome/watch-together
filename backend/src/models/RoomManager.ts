@@ -1,4 +1,4 @@
-import RoomState from "../interfaces/RoomState.js";
+import RoomState from "./RoomState.js";
 import type { VideoState, PlaylistState } from "../interfaces/States.js";
 import type User from "../interfaces/User.js";
 import type { VideoData } from "../interfaces/VideoData.js";
@@ -27,6 +27,7 @@ class ServerManager {
         const videoState: VideoState = {
             eventId: 0,
             videoUrl: null,
+            videoService: null,
             currentTime: 0,
             isPlaying: false,
             playbackRate: 1,
@@ -44,6 +45,42 @@ class ServerManager {
         roomState.setPlaylistState(playlistState);
 
         serverManager.serverRooms.set(roomId, roomState);
+    }
+
+
+    /**
+     * Returns the VideoState for a room, or null if the room or its state doesn't exist.
+     */
+    public getVideoState(roomId: string): VideoState | null {
+        const roomState = this.serverRooms.get(roomId);
+        if (!roomState) {
+            console.log(`Room ${roomId} does not exist`);
+            return null;
+        }
+        const videoState = roomState.getVideoState();
+        if (!videoState) {
+            console.log(`Video state for room ${roomId} does not exist`);
+            return null;
+        }
+        return videoState;
+    }
+
+
+    /**
+     * Returns the PlaylistState for a room, or null if the room or its state doesn't exist.
+     */
+    public getPlaylistState(roomId: string): PlaylistState | null {
+        const roomState = this.serverRooms.get(roomId);
+        if (!roomState) {
+            console.log(`Room ${roomId} does not exist`);
+            return null;
+        }
+        const playlistState = roomState.getPlaylistState();
+        if (!playlistState) {
+            console.log(`Playlist state for room ${roomId} does not exist`);
+            return null;
+        }
+        return playlistState;
     }
 };
 
