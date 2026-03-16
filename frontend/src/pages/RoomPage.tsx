@@ -2,10 +2,12 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useParams } from "react-router-dom";
 import SearchBar from "../components/room/SearchBar";
 import RoomInfo from "../components/room/RoomInfo";
+import VideoPlayer from "../components/room/VideoPlayer";
 import YoutubeVideo from "../components/youtube/YoutubeVideo";
 import type ChatMessage from "../interfaces/ChatMessage";
+import type BaseVideoInfo from "../interfaces/BaseVideoInfo";
+import type YoutubeVideoInfo from "../interfaces/YoutubeVideoInfo";
 import RoomManager from "../managers/RoomManager";
-import type VideoData from "../models/VideoData";
 import SidePanel from "../components/side-panel/SidePanel";
 
 
@@ -14,7 +16,7 @@ export default function RoomPage() {
   const roomId = params.roomId!;
   const roomManagerRef = useRef<RoomManager | null>(null);
   const [url, setUrl] = useState("");
-  const [videoData, setVideoData] = useState<VideoData>();
+  const [videoInfo, setVideoInfo] = useState<BaseVideoInfo | undefined>();
   const [playlistVideos, setPlaylistVideos] = useState<string[]>([]);
   const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(-1);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -29,17 +31,8 @@ export default function RoomPage() {
     if (!roomId) return;
 
     const onVideoChanged = async () => {
-      const videoId = roomManagerRef.current?.getVideoId();
-      if (!videoId) return;
-
-      try {
-        const response = await fetch(`${import.meta.env.VITE_APP_BACKEND_URL}/v1/youtube-api/video/${videoId}`);
-        const data = await response.json();
-
-        setVideoData(data);
-      } catch {
-        console.error(`Unable to retrieve data about video ${videoId}`);
-      }
+      const info = await roomManagerRef.current?.fetchCurrentVideoInfo();
+      setVideoInfo(info ?? undefined);
     };
 
 
@@ -54,7 +47,7 @@ export default function RoomPage() {
       setCurrentPlaylistIndex(index);
     };
 
-    
+
     const updateChatUI = (messages: ChatMessage[]) => {
       if (!roomId || !roomManagerRef.current) return;
 
@@ -63,7 +56,7 @@ export default function RoomPage() {
       setChatMessages(messages);
       chatMessageLengthRef.current = messages.length;
       setChatNotifications(prev => prev + newNotifications);
-    }
+    };
 
     roomManagerRef.current = new RoomManager(roomId, onVideoChanged, updatePlaylistUI, updateChatUI);
 
@@ -82,13 +75,13 @@ export default function RoomPage() {
   const selectPlaylistVideo = (index: number) => {
     if (!roomId || !roomManagerRef.current) return;
     roomManagerRef.current.selectPlaylistVideo(index);
-  }
+  };
 
 
   const sendChatMessage = (msg: string) => {
     if (!roomId || !roomManagerRef.current) return;
     roomManagerRef.current.sendChatMessage(msg);
-  }
+  };
 
 
   return (
@@ -100,7 +93,18 @@ export default function RoomPage() {
           onChange={(e: ChangeEvent<HTMLInputElement>) => setUrl(e.target.value)}
           onClick={queueVideo}
         />
-        <YoutubeVideo videoData={videoData} />
+
+        {/* Video player — containers are always in the DOM to support manager init */}
+        <div className="w-full flex flex-col items-center">
+          <div className="w-4/5 max-w-7xl flex flex-col">
+            <VideoPlayer currentService={videoInfo?.serviceName} />
+          </div>
+
+          {/* Service-specific video metadata */}
+          {videoInfo?.serviceName === "youtube" && (
+            <YoutubeVideo videoData={videoInfo as YoutubeVideoInfo} />
+          )}
+        </div>
       </div>
 
       <SidePanel
@@ -117,6 +121,7 @@ export default function RoomPage() {
         setPanelVisibility={(panelVisible: boolean) => setShowSidePanel(panelVisible)}
       />
     </div>
-
   );
 }
+
+
