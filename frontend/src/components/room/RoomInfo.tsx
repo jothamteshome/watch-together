@@ -55,6 +55,8 @@ export default function RoomInfo({ roomId }: { roomId: string }) {
   const [show, setShow] = useState(false);
   // State to indicate if room ID was copied
   const [copied, setCopied] = useState(false);
+  // State for backend version
+  const [backendVersion, setBackendVersion] = useState<string | null>(null);
 
 
   // Ping backend every 5 seconds to measure latency
@@ -71,6 +73,20 @@ export default function RoomInfo({ roomId }: { roomId: string }) {
     ping();
     const interval = setInterval(ping, 5000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Fetch backend version once on mount
+  useEffect(() => {
+    const fetchVersion = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_APP_BACKEND_URL}/version`);
+        const data = await res.json();
+        setBackendVersion(data.version ?? null);
+      } catch {
+        setBackendVersion(null);
+      }
+    };
+    fetchVersion();
   }, []);
  
 
@@ -114,6 +130,11 @@ export default function RoomInfo({ roomId }: { roomId: string }) {
             {/* Latency Indicator */}
             <p className="mt-2 font-semibold">Latency:</p>
             <LatencyIndicator latency={latency} />
+
+            {/* Version Info */}
+            <p className="mt-2 font-semibold">Version:</p>
+            <p className="font-mono text-xs">Frontend: v{__APP_VERSION__}</p>
+            <p className="font-mono text-xs">Backend: {backendVersion !== null ? `v${backendVersion}` : "-"}</p>
           </div>
         </div>
       )}

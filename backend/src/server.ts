@@ -1,6 +1,7 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from "express";
+import { readFileSync } from 'fs';
 import { createServer } from "http";
 import { Server } from "socket.io";
 import roomRoutes from "./routes/roomRoutes.js";
@@ -13,6 +14,10 @@ import getFormattedDate from "./utils/date.js";
 
 
 dotenv.config();
+
+const { version: backendVersion } = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf-8')
+);
 
 const app = express();
 const httpServer = createServer(app);
@@ -33,6 +38,9 @@ app.use("/v1/video-api", videoApiRoutes)
 app.get('/health', (req, res) => {
   console.log(`[${getFormattedDate()}] health check - OK`);
   res.status(200).send("OK");
+});
+app.get('/version', (_req, res) => {
+  res.json({ version: backendVersion });
 });
 
 
