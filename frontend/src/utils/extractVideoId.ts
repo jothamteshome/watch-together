@@ -3,37 +3,38 @@ import type VideoServiceInformation from "../interfaces/VideoServiceInformation"
 
 
 /**
- * Extracts a Youtube video ID from a youtube url
+ * Extracts a YouTube video ID from a YouTube URL.
  * @param parsed URL object containing information such as hostname, query parameters, etc.
- * @returns Information about the video and the youtube service identifier
+ * @returns Partial VideoServiceInformation with videoIdentifier and service.
  */
 const extractYouTubeId = (parsed: URL): Partial<VideoServiceInformation> => {
     const service: VideoService = "youtube";
-    let videoId: string | undefined;
+    let videoIdentifier: string | undefined;
 
     try {
         const hostname = parsed.hostname;
 
         if (hostname.includes("youtu.be")) {
-            videoId = parsed.pathname.slice(1);
+            videoIdentifier = parsed.pathname.slice(1);
         } else if (hostname.includes("youtube.com")) {
 
-            if (parsed.pathname.startsWith("/watch")) videoId = parsed.searchParams.get("v") ?? undefined;
-            else if (parsed.pathname.startsWith("/shorts/")) videoId = parsed.pathname.split("/")[2];
+            if (parsed.pathname.startsWith("/watch")) videoIdentifier = parsed.searchParams.get("v") ?? undefined;
+            else if (parsed.pathname.startsWith("/shorts/")) videoIdentifier = parsed.pathname.split("/")[2];
 
         }
 
-        if (!videoId || videoId.length !== 11) videoId = undefined; 
+        if (!videoIdentifier || videoIdentifier.length !== 11) videoIdentifier = undefined;
 
-        return { videoId, service };
+        return { videoIdentifier, service };
     } catch {
-        return { videoId, service };
+        return { videoIdentifier, service };
     }
 };
 
 
 /**
- * Extracts a video id for a given url and returns the id and service that url belongs to
+ * Extracts a video identifier for a given URL and returns the identifier and service that URL belongs to.
+ * Used internally by service managers — prefer manager.canHandle() in application code.
  */
 export default function extractVideoId(url: string): Partial<VideoServiceInformation> {
     const parsed = new URL(url);
@@ -43,5 +44,5 @@ export default function extractVideoId(url: string): Partial<VideoServiceInforma
         return extractYouTubeId(parsed);
     }
 
-    return { videoId: undefined, service: undefined };
+    return { videoIdentifier: undefined, service: undefined };
 };
