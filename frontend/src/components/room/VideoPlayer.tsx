@@ -1,3 +1,4 @@
+import { VideoOff } from "lucide-react";
 import type { VideoService } from "../../interfaces/VideoService";
 
 
@@ -18,6 +19,14 @@ interface VideoPlayerProps {
 export default function VideoPlayer({ currentService }: VideoPlayerProps) {
     return (
         <>
+            {/* Placeholder shown when no video is active */}
+            {!currentService && (
+                <div className="aspect-video rounded-xl bg-zinc-700 flex flex-col items-center justify-center gap-3">
+                    <VideoOff className="w-14 h-14 text-gray-500" strokeWidth={1.5} />
+                    <p className="text-gray-500 text-sm">No video playing</p>
+                </div>
+            )}
+
             {/* YouTube player container */}
             <div className={`aspect-video rounded-xl ${currentService === "youtube" ? "block" : "hidden"}`}>
                 <div id="youtube-player" className="w-full h-full rounded-xl" />
