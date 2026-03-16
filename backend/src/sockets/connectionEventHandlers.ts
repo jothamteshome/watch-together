@@ -4,7 +4,7 @@ import { handlePlaylistJoinRoomSync } from "./playlistEventHandlers.js";
 import { handleVideoJoinRoomSync } from "./videoEventHandlers.js";
 import { serverManager } from "../models/RoomManager.js";
 import generateUser from "../utils/generateUser.js";
-import type RoomState from "../interfaces/RoomState.js";
+import type RoomState from "../models/RoomState.js";
 
 
 /**
