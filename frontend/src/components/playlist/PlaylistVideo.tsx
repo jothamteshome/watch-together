@@ -42,11 +42,13 @@ export default function PlaylistVideo({ videoUrl, watching, index, onVideoSelect
 
     useEffect(() => {
         const getVideoData = async () => {
-            const { videoId } = extractVideoId(videoUrl);
-            if (!videoId) return;
+            const { videoIdentifier } = extractVideoId(videoUrl);
+            if (!videoIdentifier) return;
 
-            const response = await fetch(`${import.meta.env.VITE_APP_BACKEND_URL}/v1/youtube-api/video/${videoId}`);
+            const response = await fetch(`${import.meta.env.VITE_APP_BACKEND_URL}/v1/video-api/youtube/video/${videoIdentifier}`);
             const data = await response.json();
+
+            console.log(data)
 
             setVideoData({ videoTitle: data.videoTitle, channelTitle: data.channelTitle, videoThumbnail: data.videoThumbnail });
         }
