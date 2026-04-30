@@ -52,7 +52,7 @@ jobs:
             "cd /opt/infrastructure/cloud/perpetual-app-host",
             "git pull origin main",
             "docker compose pull watch-together",
-            "docker compose up -d watch-together"
+            "docker compose up -d --no-deps watch-together"
           ]}' \
           --comment "Deploy watch-together backend" \
           --query "Command.CommandId" \
