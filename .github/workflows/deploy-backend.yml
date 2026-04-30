@@ -48,10 +48,12 @@ jobs:
           --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
           --document-name "AWS-RunShellScript" \
           --parameters '{"commands":[
-            "source /etc/profile.d/init-env.sh",
+            "git config --global --add safe.directory /opt/infrastructure",
+            "git -C /opt/infrastructure fetch origin main",
+            "git -C /opt/infrastructure reset --hard origin/main",
+            "bash /opt/infrastructure/cloud/perpetual-app-host/scripts/setup-instance.sh",
+            ". /etc/profile.d/init-env.sh",
             "cd /opt/infrastructure/cloud/perpetual-app-host",
-            "git -C /opt/infrastructure/cloud/perpetual-app-host fetch origin main",
-            "git -C /opt/infrastructure/cloud/perpetual-app-host reset --hard origin/main",
             "docker compose pull watch-together",
             "docker compose up -d --no-deps watch-together"
           ]}' \
