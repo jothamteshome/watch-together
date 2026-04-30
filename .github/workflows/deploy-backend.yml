@@ -1,136 +1,68 @@
-name: Deploy backend to EC2 via SSH
+name: Deploy watch-together backend to EC2 via AWS SSM
 
 on:
   push:
     branches:
       - main
 
+permissions:
+  id-token: write
+  contents: read
+  packages: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-
+    - name: Checkout
+      uses: actions/checkout@v4
 
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         aws-region: us-east-1
 
-    
-    - name: Get runner public IP
-      id: get_ip
+    - name: Update SSM Parameters
       run: |
-        # Get public IP of GitHub Actions runner
-        MY_IP=$(curl -s https://checkip.amazonaws.com)/32
-        echo "runner-ip=$MY_IP" >> $GITHUB_OUTPUT
+        aws ssm put-parameter --name "/watch-together/backend/port" --value "${{ secrets.BACKEND_PORT }}" --type "String" --overwrite
+        aws ssm put-parameter --name "/watch-together/backend/youtube/api/key" --value "${{ secrets.YOUTUBE_API_KEY }}" --type "SecureString" --overwrite
 
+    - name: Log in to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Add temporary SSH rule to security group
-      id: add_sg
+    - name: Build and push image
+      uses: docker/build-push-action@v5
+      with:
+        context: backend
+        push: true
+        tags: ghcr.io/jothamteshome/watch-together-backend:latest
+
+    - name: Deploy on EC2
       run: |
-        SECURITY_GROUP_ID=${{ secrets.EC2_SG_ID }}
-        IP=${{ steps.get_ip.outputs.runner-ip }}
+        command_id=$(aws ssm send-command \
+          --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
+          --document-name "AWS-RunShellScript" \
+          --parameters '{"commands":[
+            "cd /opt/infrastructure/cloud/perpetual-app-host",
+            "git pull origin main",
+            "docker compose pull watch-together",
+            "docker compose up -d watch-together"
+          ]}' \
+          --comment "Deploy watch-together backend" \
+          --query "Command.CommandId" \
+          --output text)
 
-        echo "Adding $IP to security group $SECURITY_GROUP_ID..."
-        aws ec2 authorize-security-group-ingress \
-          --group-id $SECURITY_GROUP_ID \
-          --protocol tcp \
-          --port 22 \
-          --cidr $IP
+        aws ssm wait command-executed \
+          --command-id "$command_id" \
+          --instance-id ${{ secrets.EC2_INSTANCE_ID }}
 
-
-    - name: Wait for SSH connectivity
-      run: |
-        PUBLIC_IP="${{ secrets.EC2_HOST }}"
-        echo "Waiting for SSH on $PUBLIC_IP..."
-        max_attempts=24
-        attempt=1
-        while [ $attempt -le $max_attempts ]; do
-          if nc -z -w5 $PUBLIC_IP 22; then
-            echo "✅ SSH is reachable"
-            break
-          fi
-          echo "Attempt $attempt/$max_attempts: SSH not reachable yet..."
-          attempt=$((attempt+1))
-          sleep 10
-        done
-        if [ $attempt -gt $max_attempts ]; then
-          echo "❌ SSH not reachable after 4 minutes"
-          exit 1
-        fi
-
-
-    - name: Kill all running tmux sessions
-      uses: appleboy/ssh-action@v1.2.2
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ec2-user
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          tmux kill-server 2>/dev/null || true
-
-
-    - name: Pull latest code on EC2
-      uses: appleboy/ssh-action@v1.2.2
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ec2-user
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          if [ -d "/home/ec2-user/watch-together/.git" ]; then
-            echo "Repo exists, resetting to remote..."
-            cd /home/ec2-user/watch-together
-            git fetch origin main
-            git reset --hard origin/main
-            git clean -fd
-          else
-            echo "Repo does not exist, cloning..."
-            git clone https://github.com/jothamteshome/watch-together.git
-            cd /home/ec2-user/watch-together
-          fi
-
-          # Ensure git considers this folder safe
-          git config --global --add safe.directory /home/ec2-user/watch-together
-
-
-    - name: Install dependencies & build
-      uses: appleboy/ssh-action@v1.2.2
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ec2-user
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          cd /home/ec2-user/watch-together/backend
-
-          npm install
-          npm run build
-
-
-    - name: Start tmux session and start server
-      uses: appleboy/ssh-action@v1.2.2
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ec2-user
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          cd /home/ec2-user/watch-together/backend
-
-          tmux new-session -d -s watch-together-backend
-
-          tmux send-keys -t watch-together-backend "BACKEND_PORT=${{ secrets.BACKEND_PORT }} YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }} npm run start" C-m
-
-
-    - name: Remove temporary SSH rule
-      if: always()
-      run: |
-        SECURITY_GROUP_ID=${{ secrets.EC2_SG_ID }}
-        IP=${{ steps.get_ip.outputs.runner-ip }}
-
-        echo "Removing $IP from security group $SECURITY_GROUP_ID..."
-        aws ec2 revoke-security-group-ingress \
-          --group-id $SECURITY_GROUP_ID \
-          --protocol tcp \
-          --port 22 \
-          --cidr $IP
+        aws ssm get-command-invocation \
+          --command-id "$command_id" \
+          --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
+          --query "StandardOutputContent" \
+          --output text
