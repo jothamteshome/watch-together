@@ -50,7 +50,8 @@ jobs:
           --parameters '{"commands":[
             "source /etc/profile.d/init-env.sh",
             "cd /opt/infrastructure/cloud/perpetual-app-host",
-            "git pull origin main",
+            "git -C /opt/infrastructure/cloud/perpetual-app-host fetch origin main",
+            "git -C /opt/infrastructure/cloud/perpetual-app-host reset --hard origin/main",
             "docker compose pull watch-together",
             "docker compose up -d --no-deps watch-together"
           ]}' \
