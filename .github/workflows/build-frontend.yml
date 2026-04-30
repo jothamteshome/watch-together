@@ -16,15 +16,15 @@ jobs:
 
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
 
       
       - name: Build project
         working-directory: frontend
         env:
-          VITE_APP_BACKEND_URL: ${{ secrets.VITE_APP_BACKEND_URL }}
+          VITE_APP_BACKEND_URL: ${{ vars.VITE_APP_BACKEND_URL }}
         run: |
           rm -rf node_modules package-lock.json
           npm install
