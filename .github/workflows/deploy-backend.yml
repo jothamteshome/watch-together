@@ -48,6 +48,7 @@ jobs:
           --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
           --document-name "AWS-RunShellScript" \
           --parameters '{"commands":[
+            "source /etc/profile.d/init-env.sh",
             "cd /opt/infrastructure/cloud/perpetual-app-host",
             "git pull origin main",
             "docker compose pull watch-together",
