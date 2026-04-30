@@ -1,3 +1,3 @@
 #!/bin/bash
 set -e
-exec node dist/server.js
+exec node --max-old-space-size=384 dist/server.js
