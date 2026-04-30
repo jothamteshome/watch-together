@@ -12,7 +12,7 @@ if [ "$ENV" = "production" ]; then
         --region $AWS_REGION)
 
     export YOUTUBE_API_KEY=$(aws ssm get-parameter \
-        --name "/watch-together/backend/youtube-api-key" \
+        --name "/watch-together/backend/youtube/api/key" \
         --with-decryption \
         --query "Parameter.Value" \
         --output text \
