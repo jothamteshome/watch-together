@@ -26,6 +26,5 @@ jobs:
         env:
           VITE_APP_BACKEND_URL: ${{ vars.VITE_APP_BACKEND_URL }}
         run: |
-          rm -rf node_modules package-lock.json
-          npm install
+          npm ci
           npm run build
