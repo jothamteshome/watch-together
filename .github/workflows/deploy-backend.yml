@@ -52,7 +52,7 @@ jobs:
             "git -C /opt/infrastructure fetch origin main",
             "git -C /opt/infrastructure reset --hard origin/main",
             "bash /opt/infrastructure/cloud/perpetual-app-host/scripts/setup-instance.sh",
-            "bash -c \". /etc/profile.d/init-env.sh && cd /opt/infrastructure/cloud/perpetual-app-host && docker compose pull watch-together && docker compose up -d --no-deps watch-together\""
+            "bash -c \". /etc/profile.d/init-env.sh && cd /opt/infrastructure/cloud/perpetual-app-host && docker compose pull watch-together && docker compose up -d --no-deps watch-together && docker image prune -f\""
           ]}' \
           --comment "Deploy watch-together backend" \
           --query "Command.CommandId" \
