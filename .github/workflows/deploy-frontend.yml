@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy:
-    uses: jothamteshome/reusable-github-actions-workflows/.github/workflows/deploy-static-site.yml@deploy-static-site-latest
+    uses: jothamteshome/infra-hub/.github/workflows/deploy-static-site.yml@deploy-static-site-latest
     permissions:
       id-token: write
       contents: read
