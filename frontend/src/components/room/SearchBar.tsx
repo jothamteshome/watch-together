@@ -25,7 +25,7 @@ export default function SearchBar({ onChange, onClick }: SearchBarProps) {
   }
 
   return (
-    <div className="flex w-4/5 min-h-10 max-w-3xl border border-gray-300 rounded-full overflow-hidden shadow-sm mb-8">
+    <div className="flex flex-1 min-h-10 border border-gray-300 rounded-full overflow-hidden shadow-sm">
       <input
         ref={searchBarInputRef}
         type="text"

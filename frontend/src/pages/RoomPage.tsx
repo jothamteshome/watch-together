@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useParams } from "react-router-dom";
-import SearchBar from "../components/room/SearchBar";
-import RoomInfo from "../components/room/RoomInfo";
+import Header from "../components/room/Header";
 import RoomNotFound from "../components/room/RoomNotFound";
 import VideoPlayer from "../components/room/VideoPlayer";
 import YoutubeVideo from "../components/youtube/YoutubeVideo";
+import Playlist from "../components/playlist/Playlist";
 import type ChatMessage from "../interfaces/ChatMessage";
 import type BaseVideoInfo from "../interfaces/BaseVideoInfo";
 import type YoutubeVideoInfo from "../interfaces/YoutubeVideoInfo";
 import RoomManager from "../managers/RoomManager";
-import SidePanel from "../components/side-panel/SidePanel";
 import { checkRoomExists } from "../services/room";
 
 
@@ -23,12 +22,9 @@ export default function RoomPage() {
   const [playlistVideos, setPlaylistVideos] = useState<string[]>([]);
   const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(-1);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [showSidePanel, setShowSidePanel] = useState<boolean>(false);
   const [chatNotifications, setChatNotifications] = useState<number>(0);
-  const [playlistNotifications, setPlaylistNotifications] = useState<number>(0);
 
   const chatMessageLengthRef = useRef(0);
-  const playlistVideoLengthRef = useRef(0);
 
   useEffect(() => {
     setRoomStatus("loading");
@@ -67,11 +63,7 @@ export default function RoomPage() {
     const updatePlaylistUI = (videos: string[], index: number) => {
       if (!roomId || !roomManagerRef.current) return;
 
-      const newNotifications: number = Math.max(videos.length - playlistVideoLengthRef.current, 0);
-
       setPlaylistVideos(videos);
-      playlistVideoLengthRef.current = videos.length;
-      setPlaylistNotifications(prev => prev + newNotifications);
       setCurrentPlaylistIndex(index);
     };
 
@@ -125,41 +117,40 @@ export default function RoomPage() {
   }
 
   return (
-    <div className="w-full h-full flex">
-      {/* Main Content */}
-      <div className="w-full h-full flex flex-col items-center">
-        <RoomInfo roomId={roomId} />
-        <SearchBar
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setUrl(e.target.value)}
-          onClick={queueVideo}
-        />
-
-        {/* Video player — containers are always in the DOM to support manager init */}
-        <div className="w-full flex flex-col items-center">
-          <div className="w-4/5 max-w-7xl flex flex-col">
-            <VideoPlayer currentService={videoInfo?.serviceName} />
-          </div>
-
-          {/* Service-specific video metadata */}
-          {videoInfo?.serviceName === "youtube" && (
-            <YoutubeVideo videoData={videoInfo as YoutubeVideoInfo} />
-          )}
-        </div>
-      </div>
-
-      <SidePanel
-        videos={playlistVideos}
-        currentPlaylistIndex={currentPlaylistIndex}
-        selectPlaylistVideo={selectPlaylistVideo}
+    <div className="w-full h-full flex flex-col">
+      <Header
+        roomId={roomId}
+        onSearchChange={(e: ChangeEvent<HTMLInputElement>) => setUrl(e.target.value)}
+        onSearchSubmit={queueVideo}
         chatMessages={chatMessages}
         chatNotifications={chatNotifications}
-        playlistNotifications={playlistNotifications}
         clearChatNotifications={() => setChatNotifications(0)}
-        clearPlaylistNotifications={() => setPlaylistNotifications(0)}
         sendChatMessage={sendChatMessage}
-        showSidePanel={showSidePanel}
-        setPanelVisibility={(panelVisible: boolean) => setShowSidePanel(panelVisible)}
       />
+
+      {/* Content area — left: video player + metadata, right: queue */}
+      <div className="w-full flex-1 overflow-y-auto p-4">
+        <div className="w-full flex flex-col lg:flex-row gap-4">
+          {/* Left column — containers are always in the DOM to support manager init */}
+          <div className="w-full lg:flex-1 lg:min-w-0 flex flex-col gap-4">
+            <VideoPlayer currentService={videoInfo?.serviceName} />
+
+            {/* Service-specific video metadata */}
+            {videoInfo?.serviceName === "youtube" && (
+              <YoutubeVideo videoData={videoInfo as YoutubeVideoInfo} />
+            )}
+          </div>
+
+          {/* Right column — queue */}
+          <div className="w-full lg:w-96 lg:shrink-0 flex flex-col">
+            <Playlist
+              videos={playlistVideos}
+              currentIndex={currentPlaylistIndex}
+              onVideoSelect={selectPlaylistVideo}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
