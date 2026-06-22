@@ -1,12 +1,41 @@
-export function formatCount(n: number, precision: number): string {
-    if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(precision).replace(/\.0$/, "")}B`;
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(precision).replace(/\.0$/, "")}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(precision).replace(/\.0$/, "")}K`;
-    return String(n);
+function toSafeNumber(n: number | null | undefined): number {
+    const safeN = n ?? 0;
+    return Number.isFinite(safeN) ? safeN : 0;
 }
 
 
-export function formatYoutubeDate(timestamp: number): string {
+export function formatCount(n: number | null | undefined, precision: number): string {
+    const safeN = toSafeNumber(n);
+
+    if (safeN >= 1_000_000_000) return `${(safeN / 1_000_000_000).toFixed(precision).replace(/\.0$/, "")}B`;
+    if (safeN >= 1_000_000) return `${(safeN / 1_000_000).toFixed(precision).replace(/\.0$/, "")}M`;
+    if (safeN >= 1_000) return `${(safeN / 1_000).toFixed(precision).replace(/\.0$/, "")}K`;
+    return String(safeN);
+}
+
+
+export function formatExactCount(n: number | null | undefined): string {
+    return toSafeNumber(n).toLocaleString();
+}
+
+
+export function formatExactDate(timestamp: number | null | undefined): string {
+    if (timestamp == null || !Number.isFinite(timestamp)) return "";
+
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return "";
+
+    return date.toLocaleString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+    });
+}
+
+
+export function formatYoutubeDate(timestamp: number | null | undefined): string {
+    if (timestamp == null || !Number.isFinite(timestamp)) return "";
+
     const now = new Date();
     const then = new Date(timestamp);
     const seconds = Math.floor((now.getTime() - then.getTime()) / 1000);

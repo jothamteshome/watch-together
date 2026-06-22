@@ -7,7 +7,7 @@ import { formatCount } from "../../utils/formatVideoInfo";
  */
 interface ChannelTitleProps {
     channelTitle: string;
-    subscriberCount: number;
+    subscriberCount: number | null;
 }
 
 
@@ -18,7 +18,7 @@ interface ChannelInfoProps {
     channelIcon: string;
     channelTitle: string;
     channelUrl: string;
-    subscriberCount: number;
+    subscriberCount: number | null;
 }
 
 
@@ -26,7 +26,7 @@ interface ChannelInfoProps {
  * Renders the channel's title and subscriber count.
  */
 function ChannelTitle({ channelTitle, subscriberCount }: ChannelTitleProps) {
-    const subscriberText = subscriberCount === 1 ? "subscriber" : "subscribers";
+    const subscriberText = (subscriberCount ?? 0) === 1 ? "subscriber" : "subscribers";
 
     return (
         <div className="flex flex-col ml-2">
@@ -44,7 +44,7 @@ export default function ChannelInfo({ channelIcon, channelTitle, channelUrl, sub
     return (
         <a className="flex items-center h-12" href={channelUrl}>
             <UserIcon src={channelIcon} />
-            <ChannelTitle channelTitle={channelTitle!} subscriberCount={subscriberCount!} />
+            <ChannelTitle channelTitle={channelTitle} subscriberCount={subscriberCount} />
         </a>
     );
 }
