@@ -32,7 +32,7 @@ const getChannelData = async (channelId: string): Promise<ChannelData> => {
         channelIcon: item.snippet.thumbnails.default.url,
         channelTitle: item.snippet.title,
         channelUrl: `https://www.youtube.com/channel/${channelId}`,
-        subscriberCount: Number.parseInt(item.statistics.subscriberCount)
+        subscriberCount: item.statistics.subscriberCount != null ? Number.parseInt(item.statistics.subscriberCount) : null
     };
 
     return channelData;
@@ -51,7 +51,7 @@ const getVideoData = async (videoId: string): Promise<VideoData> => {
 
     const videoData: VideoData = {
         videoDescription: item.snippet.description,
-        videoLikeCount: Number.parseInt(item.statistics.likeCount),
+        videoLikeCount: item.statistics.likeCount != null ? Number.parseInt(item.statistics.likeCount) : null,
         videoPublishedAt: item.snippet.publishedAt ? Date.parse(item.snippet.publishedAt) : null,
         videoTitle: item.snippet.title,
         videoThumbnail: item.snippet.thumbnails.high.url,

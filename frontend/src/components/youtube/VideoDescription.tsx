@@ -38,11 +38,14 @@ function DescriptionStats({ videoPublishedAt, videoViewCount, descriptionExpande
     const viewsText = (videoViewCount ?? 0) === 1 ? "view" : "views";
 
     const expandedDateString: string = formatExactDate(videoPublishedAt);
-    const relativeDateString: string = formatYoutubeDate(videoPublishedAt);
+    const relativeDateString: string = descriptionExpanded ? "" : formatYoutubeDate(videoPublishedAt);
     const expandedViewCount: string = `${formatExactCount(videoViewCount)} ${viewsText}`;
 
-    const tooltipParts = descriptionExpanded ? [] : [expandedViewCount, expandedDateString].filter(Boolean);
-    const tooltipText = tooltipParts.length > 0 ? tooltipParts.join(" • ") : undefined;
+    const tooltipText = descriptionExpanded
+        ? undefined
+        : expandedDateString
+            ? `${expandedViewCount} • ${expandedDateString}`
+            : expandedViewCount;
 
     return (
         <div className="flex" title={tooltipText}>

@@ -1,6 +1,11 @@
-export function formatCount(n: number | null | undefined, precision: number): string {
+function toSafeNumber(n: number | null | undefined): number {
     const safeN = n ?? 0;
-    if (!Number.isFinite(safeN)) return "0";
+    return Number.isFinite(safeN) ? safeN : 0;
+}
+
+
+export function formatCount(n: number | null | undefined, precision: number): string {
+    const safeN = toSafeNumber(n);
 
     if (safeN >= 1_000_000_000) return `${(safeN / 1_000_000_000).toFixed(precision).replace(/\.0$/, "")}B`;
     if (safeN >= 1_000_000) return `${(safeN / 1_000_000).toFixed(precision).replace(/\.0$/, "")}M`;
@@ -10,8 +15,7 @@ export function formatCount(n: number | null | undefined, precision: number): st
 
 
 export function formatExactCount(n: number | null | undefined): string {
-    const safeN = n ?? 0;
-    return Number.isFinite(safeN) ? safeN.toLocaleString() : "0";
+    return toSafeNumber(n).toLocaleString();
 }
 
 

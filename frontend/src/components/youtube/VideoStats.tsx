@@ -6,7 +6,7 @@ import { formatCount } from "../../utils/formatVideoInfo";
  * Props for VideoLikes component.
  */
 interface VideoLikesProps {
-    videoLikeCount: number;
+    videoLikeCount: number | null;
 }
 
 
@@ -14,11 +14,11 @@ interface VideoLikesProps {
  * Props for VideoStats component.
  */
 interface VideoStatsProps {
-    videoLikeCount: number;
+    videoLikeCount: number | null;
     channelIcon: string;
     channelTitle: string;
     channelUrl: string;
-    subscriberCount: number;
+    subscriberCount: number | null;
 }
 
 

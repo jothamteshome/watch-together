@@ -14,11 +14,11 @@ interface VideoTitleProps {
  */
 interface VideoInfoProps {
     videoTitle: string;
-    videoLikeCount: number;
+    videoLikeCount: number | null;
     channelIcon: string;
     channelTitle: string;
     channelUrl: string;
-    subscriberCount: number;
+    subscriberCount: number | null;
 }
 
 
