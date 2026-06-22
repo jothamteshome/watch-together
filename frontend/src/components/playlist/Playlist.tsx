@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
-import { ListVideo } from "lucide-react";
-import PlaylistVideo from "./PlaylistVideo";
+import { useState, useRef, useEffect } from "react";
+import PlaylistControls from "./PlaylistControls";
+import PlaylistVideoList from "./PlaylistVideoList";
 
 
 interface PlayistProps {
@@ -11,29 +11,25 @@ interface PlayistProps {
 
 
 export default function Playist({ videos, currentIndex, onVideoSelect }: PlayistProps) {
-    const currentVideoRef = useRef<HTMLDivElement | null>(null);
+    const [isOpen, setOpen] = useState<boolean>(true);
+    const isEmpty = useRef(true);
+
+    const togglePlaylistOpenState = (): void => {
+        setOpen(!isOpen);
+    };
 
     useEffect(() => {
-        currentVideoRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [videos]);
-
-    if (videos.length === 0) {
-        return (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-3 rounded-xl bg-zinc-700">
-                <ListVideo className="w-14 h-14 text-gray-500" strokeWidth={1.5} />
-                <p className="text-gray-500 text-sm">Queue is empty</p>
-            </div>
-        );
-    }
+        isEmpty.current = videos.length == 0;
+    }, [videos])
 
     return (
-        <div className="w-full h-full flex flex-col overflow-y-auto overscroll-none rounded-xl">
-            {
-                videos.map((videoUrl: string, i: number) =>
-                (
-                    <PlaylistVideo ref={i === currentIndex ? currentVideoRef : null} key={`${videoUrl}-${i}`} watching={i === currentIndex} videoUrl={videoUrl} index={i} onVideoSelect={() => onVideoSelect(i)} />
-                ))
-            }
+        <div className="w-full h-full flex flex-col border-white/50 border-1 border-solid rounded-lg overflow-hidden">
+            <PlaylistControls isOpen={isOpen} isEmpty={isEmpty.current} onToggle={togglePlaylistOpenState}/>
+            <div className={`flex-1 min-h-0 grid transition-[grid-template-rows] duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                <div className="h-full min-h-0 overflow-hidden">
+                    <PlaylistVideoList videos={videos} currentIndex={currentIndex} onVideoSelect={onVideoSelect} />
+                </div>
+            </div>
         </div>
     );
 };

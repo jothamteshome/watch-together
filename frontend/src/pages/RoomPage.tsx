@@ -117,7 +117,7 @@ export default function RoomPage() {
   }
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col items-center">
       <Header
         roomId={roomId}
         onSearchChange={(e: ChangeEvent<HTMLInputElement>) => setUrl(e.target.value)}
@@ -129,8 +129,8 @@ export default function RoomPage() {
       />
 
       {/* Content area — left: video player + metadata, right: queue */}
-      <div className="w-full flex-1 overflow-y-auto p-4">
-        <div className="w-full flex flex-col lg:flex-row gap-4">
+      <div className="lg:w-[95%] w-full flex-1 p-4">
+        <div className="w-full flex flex-col lg:flex-row lg:items-start gap-4">
           {/* Left column — containers are always in the DOM to support manager init */}
           <div className="w-full lg:flex-1 lg:min-w-0 flex flex-col gap-4">
             <VideoPlayer currentService={videoInfo?.serviceName} />
@@ -142,7 +142,7 @@ export default function RoomPage() {
           </div>
 
           {/* Right column — queue */}
-          <div className="w-full lg:w-96 lg:shrink-0 flex flex-col">
+          <div className="lg:w-1/4 lg:max-w-140 lg:max-h-200 flex flex-col">
             <Playlist
               videos={playlistVideos}
               currentIndex={currentPlaylistIndex}

@@ -37,7 +37,7 @@ function PlaylistVideoInfo({ videoTitle, channelTitle }: { videoTitle: string; c
 
 
 export default function PlaylistVideo({ videoUrl, watching, index, onVideoSelect, ref }: PlaylistVideoProps) {
-    const backgroundClass = watching ? "bg-neutral-700" : "bg-neutral-800";
+    const backgroundClass = watching ? "bg-neutral-700" : "bg-neutral-900";
     const [videoData, setVideoData] = useState<PlaylistVideoData>({ videoTitle: "", channelTitle: "", videoThumbnail: "" });
 
     useEffect(() => {
@@ -57,8 +57,8 @@ export default function PlaylistVideo({ videoUrl, watching, index, onVideoSelect
     }, [videoUrl]);
 
     return (
-        <div ref={ref} className={`flex w-full h-20 rounded-xl mt-2 cursor-pointer ${backgroundClass}`} onClick={onVideoSelect}>
-            <p className="w-6 flex items-center justify-center text-xs">{index + 1}</p>
+        <div ref={ref} className={`flex w-full h-20 py-2 cursor-pointer ${backgroundClass}`} onClick={onVideoSelect}>
+            <p className="min-w-6 flex items-center justify-center text-xs">{index + 1}</p>
             <PlaylistVideoThumbnail thumbnail={videoData.videoThumbnail} />
             <PlaylistVideoInfo videoTitle={videoData.videoTitle} channelTitle={videoData.channelTitle} />
         </div>
