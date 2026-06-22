@@ -26,7 +26,7 @@ export default function Header({
     sendChatMessage,
 }: HeaderProps) {
     return (
-        <div className="w-full flex items-center gap-4 px-4 py-2 border-b border-gray-800">
+        <div className="w-full flex items-center justify-between gap-4 px-4 py-2 border-b border-gray-800">
             <RoomInfo roomId={roomId} />
             <SearchBar onChange={onSearchChange} onClick={onSearchSubmit} />
             <ChatButton
