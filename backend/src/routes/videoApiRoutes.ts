@@ -52,10 +52,10 @@ const getVideoData = async (videoId: string): Promise<VideoData> => {
     const videoData: VideoData = {
         videoDescription: item.snippet.description,
         videoLikeCount: Number.parseInt(item.statistics.likeCount),
-        videoPublishedAt: Date.parse(item.snippet.publishedAt),
+        videoPublishedAt: item.snippet.publishedAt ? Date.parse(item.snippet.publishedAt) : null,
         videoTitle: item.snippet.title,
         videoThumbnail: item.snippet.thumbnails.high.url,
-        videoViewCount: Number.parseInt(item.statistics.viewCount),
+        videoViewCount: item.statistics.viewCount != null ? Number.parseInt(item.statistics.viewCount) : null,
         ...channelData
     };
 

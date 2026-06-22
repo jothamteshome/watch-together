@@ -7,10 +7,10 @@ import type BaseVideoInfo from "./BaseVideoInfo";
 export default interface YoutubeVideoInfo extends BaseVideoInfo {
     videoDescription: string;
     videoLikeCount: number;
-    videoPublishedAt: number;
+    videoPublishedAt: number | null;
     videoTitle: string;
     videoThumbnail: string;
-    videoViewCount: number;
+    videoViewCount: number | null;
     channelIcon: string;
     channelTitle: string;
     channelUrl: string;

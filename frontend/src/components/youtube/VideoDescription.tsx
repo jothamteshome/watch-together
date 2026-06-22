@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { formatCount, formatYoutubeDate } from "../../utils/formatVideoInfo";
+import { formatCount, formatYoutubeDate, formatExactCount, formatExactDate } from "../../utils/formatVideoInfo";
 
 
 /**
  * Props for DescriptionStats component.
  */
 interface DescriptionStatsProps {
-    videoPublishedAt: number;
-    videoViewCount: number;
+    videoPublishedAt: number | null;
+    videoViewCount: number | null;
     descriptionExpanded: boolean;
 }
 
@@ -26,8 +26,8 @@ interface VideoDescriptionTextProps {
 interface VideoDescriptionProps {
     maxChars?: number;
     videoDescription: string;
-    videoPublishedAt: number;
-    videoViewCount: number;
+    videoPublishedAt: number | null;
+    videoViewCount: number | null;
 }
 
 
@@ -35,22 +35,21 @@ interface VideoDescriptionProps {
  * Renders video stats (views and publish date).
  */
 function DescriptionStats({ videoPublishedAt, videoViewCount, descriptionExpanded }: DescriptionStatsProps) {
-    const viewsText = videoViewCount === 1 ? "view" : "views";
+    const viewsText = (videoViewCount ?? 0) === 1 ? "view" : "views";
 
-    const date: Date = new Date(videoPublishedAt);
-    const expandedDateString: string = date.toLocaleString(undefined, {
-        year: "numeric",
-        month: "long",
-        day: "numeric"
-    });
+    const expandedDateString: string = formatExactDate(videoPublishedAt);
+    const relativeDateString: string = formatYoutubeDate(videoPublishedAt);
+    const expandedViewCount: string = `${formatExactCount(videoViewCount)} ${viewsText}`;
 
-
-    const expandedViewCount: string = `${videoViewCount.toLocaleString()} ${viewsText}`;
+    const tooltipParts = descriptionExpanded ? [] : [expandedViewCount, expandedDateString].filter(Boolean);
+    const tooltipText = tooltipParts.length > 0 ? tooltipParts.join(" • ") : undefined;
 
     return (
-        <div className="flex" title={descriptionExpanded ? undefined : `${expandedViewCount} • ${expandedDateString}`}>
+        <div className="flex" title={tooltipText}>
             <p className="font-bold text-sm">{descriptionExpanded ? `${expandedViewCount}` : `${formatCount(videoViewCount, 1)} ${viewsText}`}</p>
-            <p className="font-bold text-sm ml-2">{descriptionExpanded ? `${expandedDateString}` : `${formatYoutubeDate(videoPublishedAt)}`}</p>
+            {(descriptionExpanded ? expandedDateString : relativeDateString) && (
+                <p className="font-bold text-sm ml-2">{descriptionExpanded ? `${expandedDateString}` : `${relativeDateString}`}</p>
+            )}
         </div>
     );
 }
@@ -95,7 +94,7 @@ export default function VideoDescription({ maxChars = 200, videoDescription, vid
 
     return (
         <div className={`flex flex-col rounded-xl bg-neutral-800 mt-2 p-4 ${cursorStyle}`} onClick={expanded ? () => null : () => setExpanded(true)}>
-            <DescriptionStats videoPublishedAt={videoPublishedAt!} videoViewCount={videoViewCount!} descriptionExpanded={expanded} />
+            <DescriptionStats videoPublishedAt={videoPublishedAt} videoViewCount={videoViewCount} descriptionExpanded={expanded} />
             <VideoDescriptionText videoDescription={videoDescriptionText} />
             {
                 isLong &&
