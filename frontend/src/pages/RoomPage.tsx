@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useParams } from "react-router-dom";
 import SearchBar from "../components/room/SearchBar";
 import RoomInfo from "../components/room/RoomInfo";
+import RoomNotFound from "../components/room/RoomNotFound";
 import VideoPlayer from "../components/room/VideoPlayer";
 import YoutubeVideo from "../components/youtube/YoutubeVideo";
 import type ChatMessage from "../interfaces/ChatMessage";
@@ -9,12 +10,14 @@ import type BaseVideoInfo from "../interfaces/BaseVideoInfo";
 import type YoutubeVideoInfo from "../interfaces/YoutubeVideoInfo";
 import RoomManager from "../managers/RoomManager";
 import SidePanel from "../components/side-panel/SidePanel";
+import { checkRoomExists } from "../services/room";
 
 
 export default function RoomPage() {
   const params = useParams();
-  const roomId = params.roomId!;
+  const roomId = params.roomId;
   const roomManagerRef = useRef<RoomManager | null>(null);
+  const [roomStatus, setRoomStatus] = useState<"loading" | "found" | "not-found">("loading");
   const [url, setUrl] = useState("");
   const [videoInfo, setVideoInfo] = useState<BaseVideoInfo | undefined>();
   const [playlistVideos, setPlaylistVideos] = useState<string[]>([]);
@@ -28,7 +31,32 @@ export default function RoomPage() {
   const playlistVideoLengthRef = useRef(0);
 
   useEffect(() => {
-    if (!roomId) return;
+    setRoomStatus("loading");
+
+    if (!roomId) {
+      setRoomStatus("not-found");
+      return;
+    }
+
+    let cancelled = false;
+
+    const verifyRoom = async () => {
+      try {
+        const exists = await checkRoomExists(roomId);
+        if (!cancelled) setRoomStatus(exists ? "found" : "not-found");
+      } catch {
+        if (!cancelled) setRoomStatus("not-found");
+      }
+    };
+
+    verifyRoom();
+
+    return () => { cancelled = true; };
+  }, [roomId]);
+
+
+  useEffect(() => {
+    if (!roomId || roomStatus !== "found") return;
 
     const onVideoChanged = async () => {
       const info = await roomManagerRef.current?.fetchCurrentVideoInfo();
@@ -61,7 +89,7 @@ export default function RoomPage() {
     roomManagerRef.current = new RoomManager(roomId, onVideoChanged, updatePlaylistUI, updateChatUI);
 
     return () => roomManagerRef.current?.destroy();
-  }, [roomId]);
+  }, [roomId, roomStatus]);
 
 
   const queueVideo = () => {
@@ -83,6 +111,18 @@ export default function RoomPage() {
     roomManagerRef.current.sendChatMessage(msg);
   };
 
+
+  if (roomStatus === "loading") {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-gray-400">Loading room...</p>
+      </div>
+    );
+  }
+
+  if (roomStatus === "not-found" || !roomId) {
+    return <RoomNotFound />;
+  }
 
   return (
     <div className="w-full h-full flex">
