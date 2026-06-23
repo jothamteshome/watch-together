@@ -39,7 +39,7 @@ function VideoTitle({ videoTitle }: VideoTitleProps) {
  */
 export default function VideoInfo({ videoLikeCount, videoTitle, channelIcon, channelTitle, channelUrl, subscriberCount }: VideoInfoProps) {
     return (
-        <div className="mt-2">
+        <div className="mt-1">
             <VideoTitle videoTitle={videoTitle} />
             <VideoStats
                 videoLikeCount={videoLikeCount}

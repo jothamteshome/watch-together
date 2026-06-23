@@ -16,7 +16,7 @@ export default function PlaylistVideoList({ videos, currentIndex, onVideoSelect 
     }, [currentIndex]);
     
     return (
-        <div className="w-full h-full flex flex-col overflow-y-auto overscroll-none rounded-b-lg">
+        <div className="w-full flex flex-col overflow-y-auto overscroll-none rounded-b-lg">
             {
                 videos.map((videoUrl: string, i: number) =>
                 (

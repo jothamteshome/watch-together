@@ -23,10 +23,10 @@ export default function Playist({ videos, currentIndex, onVideoSelect }: Playist
     }, [videos])
 
     return (
-        <div className="w-full h-full flex flex-col rounded-lg overflow-hidden">
+        <div className="w-full flex flex-col rounded-lg overflow-hidden">
             <PlaylistControls isOpen={isOpen} isEmpty={isEmpty.current} onToggle={togglePlaylistOpenState}/>
             <div className={`flex-1 min-h-0 grid transition-[grid-template-rows] duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-                <div className="h-full min-h-0 overflow-hidden">
+                <div className="min-h-0 overflow-hidden">
                     <PlaylistVideoList videos={videos} currentIndex={currentIndex} onVideoSelect={onVideoSelect} />
                 </div>
             </div>

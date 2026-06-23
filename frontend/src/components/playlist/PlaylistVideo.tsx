@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Play } from "lucide-react";
 import extractVideoId from "../../utils/extractVideoId";
 
 
@@ -37,7 +38,7 @@ function PlaylistVideoInfo({ videoTitle, channelTitle }: { videoTitle: string; c
 
 
 export default function PlaylistVideo({ videoUrl, watching, index, onVideoSelect, ref }: PlaylistVideoProps) {
-    const backgroundClass = watching ? "bg-neutral-700" : "bg-neutral-900";
+    const backgroundClass = watching ? "bg-neutral-700" : "bg-neutral-900 hover:bg-neutral-700/70";
     const [videoData, setVideoData] = useState<PlaylistVideoData>({ videoTitle: "", channelTitle: "", videoThumbnail: "" });
 
     useEffect(() => {
@@ -48,8 +49,6 @@ export default function PlaylistVideo({ videoUrl, watching, index, onVideoSelect
             const response = await fetch(`${import.meta.env.VITE_APP_BACKEND_URL}/v1/video-api/youtube/video/${videoIdentifier}`);
             const data = await response.json();
 
-            console.log(data)
-
             setVideoData({ videoTitle: data.videoTitle, channelTitle: data.channelTitle, videoThumbnail: data.videoThumbnail });
         }
 
@@ -58,7 +57,13 @@ export default function PlaylistVideo({ videoUrl, watching, index, onVideoSelect
 
     return (
         <div ref={ref} className={`flex w-full h-20 py-2 cursor-pointer ${backgroundClass}`} onClick={onVideoSelect}>
-            <p className="min-w-6 flex items-center justify-center text-xs">{index + 1}</p>
+            {
+                watching ? 
+                <div className="min-w-6 flex items-center justify-center">
+                    <Play  className="fill-gray-200 stroke-gray-200 stroke-1 w-3"/>
+                </div> :
+                <p className="min-w-6 flex items-center justify-center text-xs">{index + 1}</p>
+            }
             <PlaylistVideoThumbnail thumbnail={videoData.videoThumbnail} />
             <PlaylistVideoInfo videoTitle={videoData.videoTitle} channelTitle={videoData.channelTitle} />
         </div>
