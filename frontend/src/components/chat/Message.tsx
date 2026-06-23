@@ -59,7 +59,7 @@ function MessageMetadata({ author, timestamp, isSystemMessage }: MessageMetadata
 
 function MessageText({ messageText }: MessageTextProps) {
     return (
-        <div className="w-full text-neutral-400 whitespace-pre-wrap">
+        <div className="w-full text-sm text-neutral-400 whitespace-pre-wrap">
             {messageText}
         </div>
     );

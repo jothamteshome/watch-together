@@ -40,7 +40,7 @@ export default function ChatButton({ messages, notifications, clearNotifications
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 top-full mt-2 w-96 h-[28rem] bg-black outline-white outline-[0.1rem] rounded-xl p-2 z-20">
+                <div className="absolute right-0 top-full mt-2 w-96 h-128 bg-neutral-900 border-white/40 border-1 rounded-lg p-2 z-20">
                     <Chat messages={messages} sendMessage={sendMessage} />
                 </div>
             )}

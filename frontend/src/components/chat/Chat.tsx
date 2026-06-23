@@ -11,7 +11,7 @@ interface ChatProps {
 
 export default function Chat({ messages, sendMessage }: ChatProps) {
     return (
-        <div className="w-full h-full flex flex-col overflow-none justify-end rounded-xl">
+        <div className="w-full h-full flex flex-col overflow-none justify-end rounded-lg">
             <MessageDisplay messages={messages} />
             <ChatInput onSend={sendMessage}/>
         </div>

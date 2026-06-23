@@ -46,7 +46,7 @@ export default function ChatInput({ onSend }: ChatInputProps) {
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
-            rows={4}
-            className="w-full bg-white rounded-sm resize-none text-black my-2 p-1" />
+            rows={2}
+            className="w-full bg-white rounded-sm resize-none text-black p-1" />
     );
 }
