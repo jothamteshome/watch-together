@@ -106,7 +106,7 @@ export default function RoomInfo({ roomId }: { roomId: string }) {
 
 
   return (
-    <div className="relative self-start">
+    <div className="relative">
       {/* Info Button */}
       <button
         className="p-2 rounded-full hover:bg-gray-100"

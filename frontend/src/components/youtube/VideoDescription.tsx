@@ -68,7 +68,7 @@ function VideoDescriptionText({ videoDescription }: VideoDescriptionTextProps) {
     if (!parts) parts = [];
 
     return (
-        <div className="whitespace-pre-wrap">
+        <div className="whitespace-pre-wrap text-sm">
             {parts.map((part: string, i: number) =>
                 part.match(urlRegex) ? (
                     <a key={`${part}-${i}`} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
@@ -96,7 +96,7 @@ export default function VideoDescription({ maxChars = 200, videoDescription, vid
     const cursorStyle = expanded && videoDescription ? "cursor-default" : "cursor-pointer";
 
     return (
-        <div className={`flex flex-col rounded-xl bg-neutral-800 mt-2 p-4 ${cursorStyle}`} onClick={expanded ? () => null : () => setExpanded(true)}>
+        <div className={`flex flex-col rounded-lg bg-neutral-800 mt-2 p-4 ${cursorStyle}`} onClick={expanded ? () => null : () => setExpanded(true)}>
             <DescriptionStats videoPublishedAt={videoPublishedAt} videoViewCount={videoViewCount} descriptionExpanded={expanded} />
             <VideoDescriptionText videoDescription={videoDescriptionText} />
             {

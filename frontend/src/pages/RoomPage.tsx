@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useParams } from "react-router-dom";
-import SearchBar from "../components/room/SearchBar";
-import RoomInfo from "../components/room/RoomInfo";
+import Header from "../components/room/Header";
 import RoomNotFound from "../components/room/RoomNotFound";
 import VideoPlayer from "../components/room/VideoPlayer";
 import YoutubeVideo from "../components/youtube/YoutubeVideo";
+import Playlist from "../components/playlist/Playlist";
 import type ChatMessage from "../interfaces/ChatMessage";
 import type BaseVideoInfo from "../interfaces/BaseVideoInfo";
 import type YoutubeVideoInfo from "../interfaces/YoutubeVideoInfo";
 import RoomManager from "../managers/RoomManager";
-import SidePanel from "../components/side-panel/SidePanel";
 import { checkRoomExists } from "../services/room";
+import { socket } from "../services/socket";
 
 
 export default function RoomPage() {
@@ -23,12 +23,12 @@ export default function RoomPage() {
   const [playlistVideos, setPlaylistVideos] = useState<string[]>([]);
   const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(-1);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [showSidePanel, setShowSidePanel] = useState<boolean>(false);
   const [chatNotifications, setChatNotifications] = useState<number>(0);
-  const [playlistNotifications, setPlaylistNotifications] = useState<number>(0);
 
   const chatMessageLengthRef = useRef(0);
-  const playlistVideoLengthRef = useRef(0);
+  // Tracked via ref, not state — read inside updateChatUI, which is captured once by the
+  // effect below and never re-created, so a ref avoids it ever seeing a stale value.
+  const isChatOpenRef = useRef(false);
 
   useEffect(() => {
     setRoomStatus("loading");
@@ -67,11 +67,7 @@ export default function RoomPage() {
     const updatePlaylistUI = (videos: string[], index: number) => {
       if (!roomId || !roomManagerRef.current) return;
 
-      const newNotifications: number = Math.max(videos.length - playlistVideoLengthRef.current, 0);
-
       setPlaylistVideos(videos);
-      playlistVideoLengthRef.current = videos.length;
-      setPlaylistNotifications(prev => prev + newNotifications);
       setCurrentPlaylistIndex(index);
     };
 
@@ -79,7 +75,14 @@ export default function RoomPage() {
     const updateChatUI = (messages: ChatMessage[]) => {
       if (!roomId || !roomManagerRef.current) return;
 
-      const newNotifications: number = Math.max(messages.length - chatMessageLengthRef.current, 0);
+      // Don't notify for messages this client sent itself — the server broadcasts
+      // chat:sync to the sender too, so self-authored messages would otherwise
+      // always bump the unread badge. Also don't notify at all while the chat is
+      // already open, since the user is actively seeing messages arrive in real time.
+      const newMessages = messages.slice(chatMessageLengthRef.current);
+      const newNotifications = isChatOpenRef.current
+        ? 0
+        : newMessages.filter((m) => m.authorId !== socket.id).length;
 
       setChatMessages(messages);
       chatMessageLengthRef.current = messages.length;
@@ -125,41 +128,44 @@ export default function RoomPage() {
   }
 
   return (
-    <div className="w-full h-full flex">
-      {/* Main Content */}
-      <div className="w-full h-full flex flex-col items-center">
-        <RoomInfo roomId={roomId} />
-        <SearchBar
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setUrl(e.target.value)}
-          onClick={queueVideo}
-        />
+    <div className="w-full h-full flex flex-col items-center">
+      <Header
+        roomId={roomId}
+        onSearchChange={(e: ChangeEvent<HTMLInputElement>) => setUrl(e.target.value)}
+        onSearchSubmit={queueVideo}
+        chatMessages={chatMessages}
+        chatNotifications={chatNotifications}
+        clearChatNotifications={() => setChatNotifications(0)}
+        sendChatMessage={sendChatMessage}
+        onChatOpenChange={(isOpen: boolean) => { isChatOpenRef.current = isOpen; }}
+      />
 
-        {/* Video player — containers are always in the DOM to support manager init */}
-        <div className="w-full flex flex-col items-center">
-          <div className="w-4/5 max-w-7xl flex flex-col">
+      {/* Content area — below lg: player, queue, metadata stacked in that order.
+          At lg+: player + metadata form the left column, queue spans beside both as the right column. */}
+      <div className="lg:w-[95%] w-full flex-1 p-4">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-[1fr_clamp(16.25rem,25%,35rem)] gap-y-2 gap-x-4">
+          {/* Video player — containers are always in the DOM to support manager init */}
+          <div className="order-1 lg:order-none lg:col-start-1 lg:row-start-1 lg:min-w-0 w-full flex flex-col">
             <VideoPlayer currentService={videoInfo?.serviceName} />
+          </div>
+
+          {/* Queue */}
+          <div className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:max-h-200 max-h-100 flex flex-col">
+            <Playlist
+              videos={playlistVideos}
+              currentIndex={currentPlaylistIndex}
+              onVideoSelect={selectPlaylistVideo}
+            />
           </div>
 
           {/* Service-specific video metadata */}
           {videoInfo?.serviceName === "youtube" && (
-            <YoutubeVideo videoData={videoInfo as YoutubeVideoInfo} />
+            <div className="order-3 lg:order-none lg:col-start-1 lg:row-start-2 lg:min-w-0 w-full flex flex-col gap-y-2 gap-x-4">
+              <YoutubeVideo videoData={videoInfo as YoutubeVideoInfo} />
+            </div>
           )}
         </div>
       </div>
-
-      <SidePanel
-        videos={playlistVideos}
-        currentPlaylistIndex={currentPlaylistIndex}
-        selectPlaylistVideo={selectPlaylistVideo}
-        chatMessages={chatMessages}
-        chatNotifications={chatNotifications}
-        playlistNotifications={playlistNotifications}
-        clearChatNotifications={() => setChatNotifications(0)}
-        clearPlaylistNotifications={() => setPlaylistNotifications(0)}
-        sendChatMessage={sendChatMessage}
-        showSidePanel={showSidePanel}
-        setPanelVisibility={(panelVisible: boolean) => setShowSidePanel(panelVisible)}
-      />
     </div>
   );
 }

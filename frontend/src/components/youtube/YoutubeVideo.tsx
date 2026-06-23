@@ -16,22 +16,20 @@ export default function YoutubeVideo({ videoData }: YoutubeVideoProps) {
     if (!videoData) return null;
 
     return (
-        <div className="w-full flex flex-col items-center">
-            <div className="w-4/5 max-w-7xl flex flex-col">
-                <VideoInfo
-                    videoLikeCount={videoData.videoLikeCount}
-                    videoTitle={videoData.videoTitle}
-                    channelIcon={videoData.channelIcon}
-                    channelTitle={videoData.channelTitle}
-                    channelUrl={videoData.channelUrl}
-                    subscriberCount={videoData.subscriberCount}
-                />
-                <VideoDescription
-                    videoDescription={videoData.videoDescription}
-                    videoPublishedAt={videoData.videoPublishedAt}
-                    videoViewCount={videoData.videoViewCount}
-                />
-            </div>
-        </div>
+        <>
+            <VideoInfo
+                videoLikeCount={videoData.videoLikeCount}
+                videoTitle={videoData.videoTitle}
+                channelIcon={videoData.channelIcon}
+                channelTitle={videoData.channelTitle}
+                channelUrl={videoData.channelUrl}
+                subscriberCount={videoData.subscriberCount}
+            />
+            <VideoDescription
+                videoDescription={videoData.videoDescription}
+                videoPublishedAt={videoData.videoPublishedAt}
+                videoViewCount={videoData.videoViewCount}
+            />
+        </>
     );
 }
