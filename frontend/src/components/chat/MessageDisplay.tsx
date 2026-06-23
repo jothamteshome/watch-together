@@ -10,10 +10,12 @@ interface MessageDisplayProps {
 
 export default function MessageDisplay({ messages }: MessageDisplayProps) {
     const lastMessageRef = useRef<HTMLDivElement | null>(null);
-    
-        useEffect(() => {
-            lastMessageRef.current?.scrollIntoView({ behavior: "smooth" });
-        }, [messages]);
+    const isFirstRender = useRef(true);
+
+    useEffect(() => {
+        lastMessageRef.current?.scrollIntoView({ behavior: isFirstRender.current ? "auto" : "smooth" });
+        isFirstRender.current = false;
+    }, [messages]);
 
     return (
         <div className="w-full mb-2 overflow-y-auto overscroll-none">
