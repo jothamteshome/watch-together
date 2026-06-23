@@ -128,27 +128,30 @@ export default function RoomPage() {
         sendChatMessage={sendChatMessage}
       />
 
-      {/* Content area — left: video player + metadata, right: queue */}
+      {/* Content area — below lg: player, queue, metadata stacked in that order.
+          At lg+: player + metadata form the left column, queue spans beside both as the right column. */}
       <div className="lg:w-[95%] w-full flex-1 p-4">
-        <div className="w-full flex flex-col lg:flex-row lg:items-start gap-4">
-          {/* Left column — containers are always in the DOM to support manager init */}
-          <div className="w-full lg:flex-1 lg:min-w-0 flex flex-col gap-4">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-[1fr_clamp(16.25rem,25%,35rem)] gap-4">
+          {/* Video player — containers are always in the DOM to support manager init */}
+          <div className="order-1 lg:order-none lg:col-start-1 lg:row-start-1 lg:min-w-0 w-full flex flex-col">
             <VideoPlayer currentService={videoInfo?.serviceName} />
-
-            {/* Service-specific video metadata */}
-            {videoInfo?.serviceName === "youtube" && (
-              <YoutubeVideo videoData={videoInfo as YoutubeVideoInfo} />
-            )}
           </div>
 
-          {/* Right column — queue */}
-          <div className="lg:w-1/4 lg:max-w-140 lg:max-h-200 flex flex-col">
+          {/* Queue */}
+          <div className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:max-h-200 max-h-100 flex flex-col">
             <Playlist
               videos={playlistVideos}
               currentIndex={currentPlaylistIndex}
               onVideoSelect={selectPlaylistVideo}
             />
           </div>
+
+          {/* Service-specific video metadata */}
+          {videoInfo?.serviceName === "youtube" && (
+            <div className="order-3 lg:order-none lg:col-start-1 lg:row-start-2 lg:min-w-0 w-full flex flex-col gap-4">
+              <YoutubeVideo videoData={videoInfo as YoutubeVideoInfo} />
+            </div>
+          )}
         </div>
       </div>
     </div>
