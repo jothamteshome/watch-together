@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MessageSquareText } from "lucide-react";
 import Chat from "./Chat";
 import useClickOutside from "../../hooks/useClickOutside";
@@ -10,14 +10,21 @@ interface ChatButtonProps {
     notifications: number;
     clearNotifications: () => void;
     sendMessage: (msg: string) => void;
+    onOpenChange: (isOpen: boolean) => void;
 }
 
 
-export default function ChatButton({ messages, notifications, clearNotifications, sendMessage }: ChatButtonProps) {
+export default function ChatButton({ messages, notifications, clearNotifications, sendMessage, onOpenChange }: ChatButtonProps) {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
 
     useClickOutside(containerRef, () => setIsOpen(false), isOpen);
+
+    // Reports every change regardless of cause (toggle click or click-outside),
+    // so the parent's notification logic always reflects the real open state.
+    useEffect(() => {
+        onOpenChange(isOpen);
+    }, [isOpen, onOpenChange]);
 
     const toggleOpen = () => {
         if (!isOpen) clearNotifications();

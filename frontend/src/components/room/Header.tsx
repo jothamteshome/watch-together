@@ -13,6 +13,7 @@ interface HeaderProps {
     chatNotifications: number;
     clearChatNotifications: () => void;
     sendChatMessage: (msg: string) => void;
+    onChatOpenChange: (isOpen: boolean) => void;
 }
 
 
@@ -24,9 +25,10 @@ export default function Header({
     chatNotifications,
     clearChatNotifications,
     sendChatMessage,
+    onChatOpenChange,
 }: HeaderProps) {
     return (
-        <div className="w-full flex items-center justify-between gap-4 px-4 py-2 border-b border-gray-800">
+        <div className="w-full flex items-center justify-between gap-4 p-4">
             <RoomInfo roomId={roomId} />
             <SearchBar onChange={onSearchChange} onClick={onSearchSubmit} />
             <ChatButton
@@ -34,6 +36,7 @@ export default function Header({
                 notifications={chatNotifications}
                 clearNotifications={clearChatNotifications}
                 sendMessage={sendChatMessage}
+                onOpenChange={onChatOpenChange}
             />
         </div>
     );

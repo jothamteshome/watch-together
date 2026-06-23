@@ -19,17 +19,20 @@ interface ContentColumnProps {
     timestamp: number;
     messageText: string;
     isSystemMessage: boolean;
+    showHeader: boolean;
 }
 
 
 interface IconColumnProps {
     authorIcon?: string;
+    showHeader: boolean;
 }
 
 
 interface ChatMessageProps {
     ref: React.RefObject<HTMLDivElement | null> | null;
     message: ChatMessage;
+    showHeader: boolean;
 }
 
 
@@ -66,32 +69,34 @@ function MessageText({ messageText }: MessageTextProps) {
 }
 
 
-function ContentColumn({ author, timestamp, messageText, isSystemMessage }: ContentColumnProps) {
+function ContentColumn({ author, timestamp, messageText, isSystemMessage, showHeader }: ContentColumnProps) {
     return (
         <div className="flex-1 flex-col">
-            <MessageMetadata author={author} timestamp={timestamp} isSystemMessage={isSystemMessage} />
+            {showHeader && <MessageMetadata author={author} timestamp={timestamp} isSystemMessage={isSystemMessage} />}
             <MessageText messageText={messageText} />
         </div>
     );
 }
 
 
-function IconColumn({ authorIcon }: IconColumnProps) {
+function IconColumn({ authorIcon, showHeader }: IconColumnProps) {
     return (
         <div className="w-10 h-full mx-2">
             {
-                authorIcon && <UserIcon src={authorIcon} />
+                showHeader && authorIcon && <UserIcon src={authorIcon} />
             }
         </div>
     );
 }
 
 
-export default function Message({ message, ref }: ChatMessageProps) {
+export default function Message({ message, ref, showHeader }: ChatMessageProps) {
+    const spacingStyle = showHeader ? "mt-4" : "mt-0.5";
+
     return (
-        <div ref={ref} className="w-full flex mt-4">
-            <IconColumn authorIcon={message.authorIcon} />  
-            <ContentColumn author={message.author} timestamp={message.timestamp} messageText={message.text} isSystemMessage={message.isSystemMessage} />
+        <div ref={ref} className={`w-full flex ${spacingStyle}`}>
+            <IconColumn authorIcon={message.authorIcon} showHeader={showHeader} />
+            <ContentColumn author={message.author} timestamp={message.timestamp} messageText={message.text} isSystemMessage={message.isSystemMessage} showHeader={showHeader} />
         </div>
     );
 }

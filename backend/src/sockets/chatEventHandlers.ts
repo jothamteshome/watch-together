@@ -35,6 +35,7 @@ function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMess
         id: nanoid(8),
         author: user ? user.username : socket.id,
         authorIcon: user?.icon,
+        authorId: socket.id,
         text: msg,
         timestamp: Date.now(),
         isSystemMessage: false

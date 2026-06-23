@@ -10,6 +10,7 @@ import type BaseVideoInfo from "../interfaces/BaseVideoInfo";
 import type YoutubeVideoInfo from "../interfaces/YoutubeVideoInfo";
 import RoomManager from "../managers/RoomManager";
 import { checkRoomExists } from "../services/room";
+import { socket } from "../services/socket";
 
 
 export default function RoomPage() {
@@ -25,6 +26,9 @@ export default function RoomPage() {
   const [chatNotifications, setChatNotifications] = useState<number>(0);
 
   const chatMessageLengthRef = useRef(0);
+  // Tracked via ref, not state — read inside updateChatUI, which is captured once by the
+  // effect below and never re-created, so a ref avoids it ever seeing a stale value.
+  const isChatOpenRef = useRef(false);
 
   useEffect(() => {
     setRoomStatus("loading");
@@ -71,7 +75,14 @@ export default function RoomPage() {
     const updateChatUI = (messages: ChatMessage[]) => {
       if (!roomId || !roomManagerRef.current) return;
 
-      const newNotifications: number = Math.max(messages.length - chatMessageLengthRef.current, 0);
+      // Don't notify for messages this client sent itself — the server broadcasts
+      // chat:sync to the sender too, so self-authored messages would otherwise
+      // always bump the unread badge. Also don't notify at all while the chat is
+      // already open, since the user is actively seeing messages arrive in real time.
+      const newMessages = messages.slice(chatMessageLengthRef.current);
+      const newNotifications = isChatOpenRef.current
+        ? 0
+        : newMessages.filter((m) => m.authorId !== socket.id).length;
 
       setChatMessages(messages);
       chatMessageLengthRef.current = messages.length;
@@ -126,6 +137,7 @@ export default function RoomPage() {
         chatNotifications={chatNotifications}
         clearChatNotifications={() => setChatNotifications(0)}
         sendChatMessage={sendChatMessage}
+        onChatOpenChange={(isOpen: boolean) => { isChatOpenRef.current = isOpen; }}
       />
 
       {/* Content area — below lg: player, queue, metadata stacked in that order.
