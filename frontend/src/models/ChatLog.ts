@@ -1,4 +1,4 @@
-import type ChatMessage from "../interfaces/ChatMessage";
+import type ChatMessage from "@shared/interfaces/ChatMessage";
 
 export default class ChatLog {
     private items: ChatMessage[] = [];

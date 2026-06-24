@@ -1,5 +1,5 @@
 import { VideoOff } from "lucide-react";
-import type { VideoService } from "../../interfaces/VideoService";
+import type { VideoService } from "@shared/interfaces/VideoService";
 
 
 interface VideoPlayerProps {
