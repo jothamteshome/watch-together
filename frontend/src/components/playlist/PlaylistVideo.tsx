@@ -22,7 +22,7 @@ interface PlaylistVideoData {
 function PlaylistVideoThumbnail({ thumbnail }: { thumbnail: string }) {
     return (
         <div className="aspect-video flex-shrink-0">
-            <img className="w-full h-full object-cover rounded-md" src={thumbnail || undefined} />
+            <img className="aspect-video h-full object-cover rounded-lg" src={thumbnail || undefined} />
         </div>
     );
 }
