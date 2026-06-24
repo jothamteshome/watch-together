@@ -2,10 +2,10 @@ import { BaseVideoManager } from "./BaseVideoManager";
 import ChatManager from "./ChatManager";
 import PlaylistManager from "./PlaylistManager";
 import YoutubeManager from "./YoutubeManager";
-import type ChatMessage from "../interfaces/ChatMessage";
-import type BaseVideoInfo from "../interfaces/BaseVideoInfo";
-import type { PlaylistState, VideoState } from "../interfaces/States";
-import type { VideoService } from "../interfaces/VideoService";
+import type ChatMessage from "@shared/interfaces/ChatMessage";
+import type { VideoInfo } from "@shared/interfaces/VideoInfo";
+import type { PlaylistState, VideoState } from "@shared/interfaces/States";
+import type { VideoService } from "@shared/interfaces/VideoService";
 import { socket } from "../services/socket";
 
 
@@ -21,6 +21,7 @@ export default class RoomManager {
     private roomId: string;
     private currentVideoUrl?: string;
     private currentService?: VideoService;
+    private currentManager?: BaseVideoManager;
     private videoManagers: Record<VideoService, BaseVideoManager>;
     private playlistManager: PlaylistManager;
     private chatManager: ChatManager;
@@ -41,14 +42,11 @@ export default class RoomManager {
             youtube: new YoutubeManager(this.roomId, this.onVideoEnd)
         };
 
-        for (const [service, manager] of Object.entries(this.videoManagers)) {
-            manager.initPlayer(`${service}-player`);
-        }
-
         this.playlistManager = new PlaylistManager(updatePlaylistUI);
         this.chatManager = new ChatManager(updateChatUI);
 
         this.registerSocketEvents();
+        this.joinRoom();
     }
 
 
@@ -60,18 +58,47 @@ export default class RoomManager {
 
 
     /**
+     * Connects the socket (if needed) and joins the room. Room membership is
+     * independent of any specific video service's player lifecycle.
+     */
+    private joinRoom = (): void => {
+        if (!socket.connected) {
+            socket.connect();
+            socket.once("connect", () => {
+                socket.emit("room:join", { roomId: this.roomId });
+            });
+        } else {
+            socket.emit("room:join", { roomId: this.roomId });
+        }
+    };
+
+
+    /**
      * Syncs the local player with the server-provided video state.
      * If the URL changed, loads the new video; otherwise applies drift correction only.
      */
-    private syncVideo = (state: VideoState): void => {
+    private syncVideo = async (state: VideoState): Promise<void> => {
         if (!state.videoUrl) return;
 
-        const manager = this.resolveManager(state.videoUrl);
+        const manager = state.videoService
+            ? this.videoManagers[state.videoService]
+            : this.getManagerForUrl(state.videoUrl);
         if (!manager) return;
+
+        manager.ensureInitialized(`${manager.getServiceName()}-player`);
+
+        if (this.currentManager && this.currentManager !== manager) {
+            this.currentManager.pause();
+        }
+        this.currentManager = manager;
 
         const urlChanged = state.videoUrl !== this.currentVideoUrl;
         this.currentVideoUrl = state.videoUrl;
         this.currentService = manager.getServiceName();
+
+        // The manager may still be initializing (e.g. waiting on the YouTube iframe
+        // API to load) — wait until it's actually ready before loading/syncing.
+        await manager.whenReady();
 
         if (urlChanged) {
             manager.loadVideo(state.videoUrl, state.currentTime, state.eventId);
@@ -120,16 +147,21 @@ export default class RoomManager {
 
     /**
      * Finds the manager that can handle the given URL.
+     * Returns null without alerting if no manager supports the URL.
+     */
+    public getManagerForUrl = (videoUrl: string): BaseVideoManager | null => {
+        return Object.values(this.videoManagers).find(manager => manager.canHandle(videoUrl)) ?? null;
+    };
+
+
+    /**
+     * Finds the manager that can handle the given URL.
      * Alerts the user and returns null if no manager supports the URL.
      */
     private resolveManager = (videoUrl: string): BaseVideoManager | null => {
-        for (const manager of Object.values(this.videoManagers)) {
-            if (manager.canHandle(videoUrl)) {
-                return manager;
-            }
-        }
-        alert(`Unsupported video URL: ${videoUrl}`);
-        return null;
+        const manager = this.getManagerForUrl(videoUrl);
+        if (!manager) alert(`Unsupported video URL: ${videoUrl}`);
+        return manager;
     };
 
 
@@ -156,11 +188,22 @@ export default class RoomManager {
      * Fetches metadata for the currently active video from the appropriate service manager.
      * Returns null if no video is loaded or the fetch fails.
      */
-    public fetchCurrentVideoInfo = async (): Promise<BaseVideoInfo | null> => {
+    public fetchCurrentVideoInfo = async (): Promise<VideoInfo | null> => {
         if (!this.currentVideoUrl || !this.currentService) return null;
         const manager = this.videoManagers[this.currentService];
         if (!manager) return null;
         return manager.fetchVideoInfo(this.currentVideoUrl);
+    };
+
+
+    /**
+     * Fetches metadata for an arbitrary video URL (e.g. a playlist item that isn't
+     * the currently active video) using whichever manager supports it.
+     */
+    public fetchVideoInfoForUrl = async (videoUrl: string): Promise<VideoInfo | null> => {
+        const manager = this.getManagerForUrl(videoUrl);
+        if (!manager) return null;
+        return manager.fetchVideoInfo(videoUrl);
     };
 
 
@@ -179,5 +222,3 @@ export default class RoomManager {
         Object.values(this.videoManagers).forEach(manager => manager.destroy());
     }
 }
-
-

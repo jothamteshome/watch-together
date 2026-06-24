@@ -1,8 +1,11 @@
+import type { VideoService } from "./VideoService";
+
+
 /** Interface for `video:set` events */
 export interface VideoSetEvent {
     roomId: string;
     videoUrl: string;
-    videoService?: string;
+    videoService?: VideoService;
 };
 
 

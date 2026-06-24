@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'backend/**'
+      - 'shared/**'
       - '.github/workflows/deploy-backend.yml'
 
 permissions:
@@ -41,7 +42,8 @@ jobs:
     - name: Build and push image
       uses: docker/build-push-action@v7
       with:
-        context: backend
+        context: .
+        file: backend/Dockerfile
         push: true
         tags: ghcr.io/jothamteshome/watch-together-backend:latest
 

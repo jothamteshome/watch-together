@@ -1,5 +1,5 @@
 import UserIcon from "../user/UserIcon";
-import type ChatMessage from "../../interfaces/ChatMessage";
+import type ChatMessage from "@shared/interfaces/ChatMessage";
 
 
 interface MessageMetadataProps {

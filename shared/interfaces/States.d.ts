@@ -1,8 +1,11 @@
+import type { VideoService } from "./VideoService";
+
+
 /** Interface for video states stored on server */
 export interface VideoState {
     eventId: number;
     videoUrl: string | null;
-    videoService: string | null;
+    videoService: VideoService | null;
     currentTime: number;
     isPlaying: boolean;
     playbackRate: number;

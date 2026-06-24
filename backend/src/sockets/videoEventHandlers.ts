@@ -1,6 +1,6 @@
 import type { Server, Socket } from "socket.io";
-import type { VideoSetEvent, VideoUpdateEvent } from "../interfaces/VideoEvents.js";
-import type { VideoState } from "../interfaces/States.js";
+import type { VideoSetEvent, VideoUpdateEvent } from "@shared/interfaces/VideoEvents";
+import type { VideoState } from "@shared/interfaces/States";
 import { serverManager } from "../models/RoomManager.js";
 
 

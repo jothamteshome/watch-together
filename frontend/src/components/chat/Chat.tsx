@@ -1,6 +1,6 @@
 import ChatInput from "./ChatInput";
 import MessageDisplay from "./MessageDisplay";
-import type ChatMessage from "../../interfaces/ChatMessage";
+import type ChatMessage from "@shared/interfaces/ChatMessage";
 
 
 interface ChatProps {

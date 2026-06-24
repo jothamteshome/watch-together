@@ -1,8 +1,8 @@
 import { nanoid } from "nanoid";
 import { Server, Socket } from "socket.io";
-import type { ChatMessageEvent } from "../interfaces/ChatEvents.js";
-import type ChatMessage from "../interfaces/ChatMessage.js";
-import type User from "../interfaces/User.js";
+import type { ChatMessageEvent } from "@shared/interfaces/ChatEvents";
+import type ChatMessage from "@shared/interfaces/ChatMessage";
+import type User from "@shared/interfaces/User";
 import { serverManager } from "../models/RoomManager.js";
 
 

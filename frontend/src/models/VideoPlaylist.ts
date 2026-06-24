@@ -1,4 +1,4 @@
-import type { PlaylistState } from "../interfaces/States";
+import type { PlaylistState } from "@shared/interfaces/States";
 
 export default class Playlist {
     private items: string[] = [];

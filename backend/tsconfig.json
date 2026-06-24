@@ -14,6 +14,9 @@
     "esModuleInterop": true,
     "types": [],
     "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@shared/*": ["../shared/*"]
+    },
     // For nodejs:
     // "lib": ["esnext"],
     // "types": ["node"],
@@ -45,5 +48,5 @@
     "moduleDetection": "force",
     "skipLibCheck": true,
   },
-  "include": ["src"]
+  "include": ["src", "../shared"]
 }

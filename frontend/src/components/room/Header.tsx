@@ -2,7 +2,7 @@ import type { ChangeEvent } from "react";
 import RoomInfo from "./RoomInfo";
 import SearchBar from "./SearchBar";
 import ChatButton from "../chat/ChatButton";
-import type ChatMessage from "../../interfaces/ChatMessage";
+import type ChatMessage from "@shared/interfaces/ChatMessage";
 
 
 interface HeaderProps {

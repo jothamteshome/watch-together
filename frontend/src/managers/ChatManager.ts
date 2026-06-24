@@ -1,4 +1,4 @@
-import type ChatMessage from "../interfaces/ChatMessage";
+import type ChatMessage from "@shared/interfaces/ChatMessage";
 import ChatLog from "../models/ChatLog";
 
 

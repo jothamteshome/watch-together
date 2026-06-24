@@ -1,10 +1,7 @@
 import { BaseVideoManager } from "./BaseVideoManager";
-import { type VideoState } from "../interfaces/States";
-import type { VideoService } from "../interfaces/VideoService";
-import type BaseVideoInfo from "../interfaces/BaseVideoInfo";
-import type YoutubeVideoInfo from "../interfaces/YoutubeVideoInfo";
+import type { VideoState } from "@shared/interfaces/States";
+import type { VideoService } from "@shared/interfaces/VideoService";
 import { socket } from "../services/socket";
-import extractVideoId from "../utils/extractVideoId";
 
 declare global {
     interface Window {
@@ -55,26 +52,32 @@ export default class YoutubeManager extends BaseVideoManager {
         this.loadedLocalTime = Date.now();
     }
 
-    /**
-     * Fetches YouTube video metadata from the backend.
-     * Returns null if the URL is invalid or the request fails.
-     */
-    public async fetchVideoInfo(url: string): Promise<BaseVideoInfo | null> {
+    /** Extracts the YouTube video ID from a URL string. Returns null if invalid. */
+    public extractId(url: string): string | null {
         try {
-            const videoIdentifier = this.extractId(url);
-            if (!videoIdentifier) return null;
+            const parsed = new URL(url);
+            const hostname = parsed.hostname;
 
-            const response = await fetch(
-                `${import.meta.env.VITE_APP_BACKEND_URL}/v1/video-api/youtube/video/${videoIdentifier}`
-            );
-            if (!response.ok) return null;
+            let id: string | undefined;
+            if (hostname.includes("youtu.be")) {
+                id = parsed.pathname.slice(1);
+            } else if (hostname.includes("youtube.com")) {
+                if (parsed.pathname.startsWith("/watch")) id = parsed.searchParams.get("v") ?? undefined;
+                else if (parsed.pathname.startsWith("/shorts/")) id = parsed.pathname.split("/")[2];
+            }
 
-            const data = await response.json();
-            const info: YoutubeVideoInfo = { ...data, serviceName: "youtube" };
-            return info;
+            if (!id || id.length !== 11) return null;
+            return id;
         } catch {
             return null;
         }
+    }
+
+    /** Fully stops playback without broadcasting a video:pause event — used when switching away from this service. */
+    public pause(): void {
+        if (!this.player) return;
+        this.suppressNextPause = true;
+        this.player.pauseVideo();
     }
 
     // ── Player lifecycle ──────────────────────────────────────────────────────
@@ -155,27 +158,9 @@ export default class YoutubeManager extends BaseVideoManager {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    /** Extracts the YouTube video ID from a URL string. Returns null if invalid. */
-    private extractId(url: string): string | null {
-        try {
-            const result = extractVideoId(url);
-            return result.videoIdentifier ?? null;
-        } catch {
-            return null;
-        }
-    }
-
     private onPlayerReady = () => {
-        if (!socket.connected) {
-            socket.connect();
-            socket.once("connect", () => {
-                socket.emit("room:join", { roomId: this.roomId });
-            });
-        } else {
-            socket.emit("room:join", { roomId: this.roomId });
-        }
-
         this.monitorPlaybackRate();
+        this.markReady();
     };
 
     private onPlayerStateChange = (event: YT.OnStateChangeEvent) => {

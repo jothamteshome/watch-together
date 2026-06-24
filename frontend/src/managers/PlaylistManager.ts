@@ -1,5 +1,5 @@
 import Playlist from "../models/VideoPlaylist";
-import type { PlaylistState } from "../interfaces/States";
+import type { PlaylistState } from "@shared/interfaces/States";
 
 
 /**

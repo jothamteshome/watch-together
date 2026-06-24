@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { MessageSquareText } from "lucide-react";
 import Chat from "./Chat";
 import useClickOutside from "../../hooks/useClickOutside";
-import type ChatMessage from "../../interfaces/ChatMessage";
+import type ChatMessage from "@shared/interfaces/ChatMessage";
 
 
 interface ChatButtonProps {

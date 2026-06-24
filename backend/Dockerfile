@@ -2,11 +2,12 @@ FROM node:24-slim AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY backend/package*.json ./
 RUN npm ci
 
-COPY tsconfig.json ./
-COPY src ./src
+COPY backend/tsconfig.json ./
+COPY backend/src ./src
+COPY shared /shared
 RUN npm run build
 
 
@@ -18,11 +19,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json ./
+COPY backend/package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
-COPY entrypoint.sh ./
+COPY backend/entrypoint.sh ./
 
 RUN chmod +x entrypoint.sh
 

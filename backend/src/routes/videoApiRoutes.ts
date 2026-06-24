@@ -1,72 +1,27 @@
 import { Router } from "express";
 import { serverManager } from "../models/RoomManager.js";
-import type { VideoData, ChannelData } from "../interfaces/VideoData.js";
+import videoProviders from "../services/videoProviders/index.js";
+import type { VideoService } from "@shared/interfaces/VideoService";
 
 
 const router = Router();
 
 
-/** Generic function to fetch data from the YouTube Data API v3 */
-async function fetchFromYoutube<T>(endpoint: string, params: Record<string, string>): Promise<T> {
-    const apiKey = process.env.YOUTUBE_API_KEY;
-    if (!apiKey) throw new Error("Missing YOUTUBE_API_KEY in environment");
-
-    const query = new URLSearchParams({ ...params, key: apiKey }).toString();
-    const response = await fetch(`https://www.googleapis.com/youtube/v3/${endpoint}?${query}`);
-    if (!response.ok) throw new Error(`YouTube API error: ${response.statusText}`);
-
-    return response.json() as Promise<T>;
+function isSupportedService(service: string): service is VideoService {
+    return service in videoProviders;
 }
 
 
-/** Get channel data from the YouTube Data API v3 */
-const getChannelData = async (channelId: string): Promise<ChannelData> => {
-    const data = await fetchFromYoutube<any>("channels", {
-        part: "snippet,contentDetails,statistics",
-        id: channelId
-    });
+/** GET /:service/video/:id — returns normalized video metadata; `id` is opaque and service-defined */
+router.get("/:service/video/:id", async (req, res) => {
+    const { service, id } = req.params;
 
-    const item = data.items[0];
+    if (!isSupportedService(service)) {
+        res.status(400).json({ error: `Unsupported video service: ${service}` });
+        return;
+    }
 
-    const channelData: ChannelData = {
-        channelIcon: item.snippet.thumbnails.default.url,
-        channelTitle: item.snippet.title,
-        channelUrl: `https://www.youtube.com/channel/${channelId}`,
-        subscriberCount: item.statistics.subscriberCount != null ? Number.parseInt(item.statistics.subscriberCount) : null
-    };
-
-    return channelData;
-};
-
-
-/** Get video data from the YouTube Data API v3 */
-const getVideoData = async (videoId: string): Promise<VideoData> => {
-    const data = await fetchFromYoutube<any>("videos", {
-        part: "snippet,contentDetails,statistics",
-        id: videoId
-    });
-
-    const item = data.items[0];
-    const channelData = await getChannelData(item.snippet.channelId);
-
-    const videoData: VideoData = {
-        videoDescription: item.snippet.description,
-        videoLikeCount: item.statistics.likeCount != null ? Number.parseInt(item.statistics.likeCount) : null,
-        videoPublishedAt: item.snippet.publishedAt ? Date.parse(item.snippet.publishedAt) : null,
-        videoTitle: item.snippet.title,
-        videoThumbnail: item.snippet.thumbnails.high.url,
-        videoViewCount: item.statistics.viewCount != null ? Number.parseInt(item.statistics.viewCount) : null,
-        ...channelData
-    };
-
-    return videoData;
-};
-
-
-/** GET /youtube/video/:videoId — returns YouTube video metadata */
-router.get("/youtube/video/:videoId", async (req, res) => {
-    const { videoId } = req.params;
-    const cacheKey = `youtube:${videoId}`;
+    const cacheKey = `${service}:${id}`;
 
     if (serverManager.videoCache.has(cacheKey)) {
         res.json(serverManager.videoCache.get(cacheKey));
@@ -74,16 +29,16 @@ router.get("/youtube/video/:videoId", async (req, res) => {
     }
 
     try {
-        const videoData: VideoData = await getVideoData(videoId);
+        const videoInfo = await videoProviders[service].getVideoInfo(id);
 
-        serverManager.videoCache.set(cacheKey, videoData);
+        serverManager.videoCache.set(cacheKey, videoInfo);
         setTimeout(() => {
             serverManager.videoCache.delete(cacheKey);
         }, 1000 * 60 * 60);
 
-        res.json(videoData);
+        res.json(videoInfo);
     } catch {
-        console.error("Error retrieving data from YouTube Data API v3");
+        console.error(`Error retrieving data from ${service} provider`);
         res.status(500).json({ error: "Failed to fetch video data" });
     }
 });
