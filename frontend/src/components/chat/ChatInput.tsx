@@ -47,6 +47,6 @@ export default function ChatInput({ onSend }: ChatInputProps) {
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             rows={2}
-            className="w-full bg-white rounded-sm resize-none text-black p-1" />
+            className="w-full bg-neutral-600 rounded-sm resize-none text-white p-1" />
     );
 }

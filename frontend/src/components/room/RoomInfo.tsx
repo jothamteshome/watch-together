@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Info } from "lucide-react";
+import useClickOutside from "../../hooks/useClickOutside";
 
 
 /**
@@ -58,6 +59,10 @@ export default function RoomInfo({ roomId }: { roomId: string }) {
   // State for backend version
   const [backendVersion, setBackendVersion] = useState<string | null>(null);
 
+  const containerRef = useRef<HTMLButtonElement | null>(null);
+
+  useClickOutside(containerRef, () => setShow(false), show);
+
 
   // Ping backend every 5 seconds to measure latency
   useEffect(() => {
@@ -109,16 +114,17 @@ export default function RoomInfo({ roomId }: { roomId: string }) {
     <div className="relative">
       {/* Info Button */}
       <button
-        className="p-2 rounded-full hover:bg-gray-100"
+        ref={containerRef}
+        className="p-2 rounded-full hover:bg-gray-100/10"
         onClick={() => setShow((s) => !s)}
       >
-        <Info className="w-5 h-5 text-gray-600" />
+        <Info className="w-5 h-5 stroke-neutral-500" />
       </button>
 
       {/* Info Box */}
       {show && (
-        <div className="absolute left-0 mt-2 ml-2 w-56 p-4 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-          <div className="text-sm text-gray-700">
+        <div className="absolute left-0 mt-2 ml-2 w-56 p-4 bg-neutral-900 border border-white/40 rounded-lg shadow-lg z-10">
+          <div className="text-sm text-neutral-300">
 
             {/* Room ID and Copy Button */}
             <p className="font-semibold">Room:</p>

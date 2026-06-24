@@ -38,7 +38,7 @@ export default function ChatButton({ messages, notifications, clearNotifications
                 onClick={toggleOpen}
                 className={`relative p-2 rounded-full hover:bg-gray-100/10 cursor-pointer ${isOpen ? "bg-gray-100/10" : ""}`}
             >
-                <MessageSquareText className="w-5 h-5 text-gray-300" />
+                <MessageSquareText className="w-5 h-5 stroke-neutral-500" />
                 {notifications > 0 && (
                     <div className="min-w-5 h-5 p-1 flex justify-center items-center -top-1 -right-1 absolute rounded-full bg-red-500 text-xs">
                         {notifications}
@@ -47,7 +47,7 @@ export default function ChatButton({ messages, notifications, clearNotifications
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 top-full mt-2 sm:w-96 w-72 h-128 bg-neutral-900 border-white/40 border-1 rounded-lg p-2 z-20">
+                <div className="fixed inset-x-4 top-20 mx-auto max-w-96 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:mx-0 sm:max-w-none sm:w-96 aspect-3/4 bg-neutral-900 border-white/40 border-1 rounded-lg p-2 shadow-lg z-10">
                     <Chat messages={messages} sendMessage={sendMessage} />
                 </div>
             )}
