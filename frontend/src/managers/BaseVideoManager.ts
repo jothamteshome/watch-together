@@ -9,6 +9,9 @@ export abstract class BaseVideoManager {
     protected onVideoEnd: () => void;
     protected videoLoaded: boolean = false;
     private initialized: boolean = false;
+    private ready: boolean = false;
+    private readyPromise: Promise<void> | null = null;
+    private resolveReady: (() => void) | null = null;
     readonly driftThreshold: number = 0.5;
 
 
@@ -24,6 +27,21 @@ export abstract class BaseVideoManager {
         if (this.initialized) return;
         this.initialized = true;
         this.initPlayer(containerId);
+    }
+
+    /** Resolves once the player is ready to receive loadVideo/sync calls. Safe to await from multiple callers. */
+    public whenReady(): Promise<void> {
+        if (this.ready) return Promise.resolve();
+        if (!this.readyPromise) {
+            this.readyPromise = new Promise(resolve => { this.resolveReady = resolve; });
+        }
+        return this.readyPromise;
+    }
+
+    /** Called by subclasses once their underlying player has finished initializing. */
+    protected markReady(): void {
+        this.ready = true;
+        this.resolveReady?.();
     }
 
     /** Returns true if this manager can handle the given URL. */

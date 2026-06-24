@@ -46,6 +46,7 @@ export default class RoomManager {
         this.chatManager = new ChatManager(updateChatUI);
 
         this.registerSocketEvents();
+        this.joinRoom();
     }
 
 
@@ -57,10 +58,26 @@ export default class RoomManager {
 
 
     /**
+     * Connects the socket (if needed) and joins the room. Room membership is
+     * independent of any specific video service's player lifecycle.
+     */
+    private joinRoom = (): void => {
+        if (!socket.connected) {
+            socket.connect();
+            socket.once("connect", () => {
+                socket.emit("room:join", { roomId: this.roomId });
+            });
+        } else {
+            socket.emit("room:join", { roomId: this.roomId });
+        }
+    };
+
+
+    /**
      * Syncs the local player with the server-provided video state.
      * If the URL changed, loads the new video; otherwise applies drift correction only.
      */
-    private syncVideo = (state: VideoState): void => {
+    private syncVideo = async (state: VideoState): Promise<void> => {
         if (!state.videoUrl) return;
 
         const manager = state.videoService
@@ -78,6 +95,10 @@ export default class RoomManager {
         const urlChanged = state.videoUrl !== this.currentVideoUrl;
         this.currentVideoUrl = state.videoUrl;
         this.currentService = manager.getServiceName();
+
+        // The manager may still be initializing (e.g. waiting on the YouTube iframe
+        // API to load) — wait until it's actually ready before loading/syncing.
+        await manager.whenReady();
 
         if (urlChanged) {
             manager.loadVideo(state.videoUrl, state.currentTime, state.eventId);

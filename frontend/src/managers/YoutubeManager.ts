@@ -159,16 +159,8 @@ export default class YoutubeManager extends BaseVideoManager {
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private onPlayerReady = () => {
-        if (!socket.connected) {
-            socket.connect();
-            socket.once("connect", () => {
-                socket.emit("room:join", { roomId: this.roomId });
-            });
-        } else {
-            socket.emit("room:join", { roomId: this.roomId });
-        }
-
         this.monitorPlaybackRate();
+        this.markReady();
     };
 
     private onPlayerStateChange = (event: YT.OnStateChangeEvent) => {
