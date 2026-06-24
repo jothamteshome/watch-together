@@ -1,12 +1,12 @@
 import RoomState from "./RoomState.js";
-import type { VideoState, PlaylistState } from "../interfaces/States.js";
-import type User from "../interfaces/User.js";
-import type { VideoData } from "../interfaces/VideoData.js";
+import type { VideoState, PlaylistState } from "@shared/interfaces/States";
+import type User from "@shared/interfaces/User";
+import type { VideoInfo } from "@shared/interfaces/VideoInfo";
 
 
 class ServerManager {
     public serverUsers: Map<string, User> = new Map<string, User>();
-    public videoCache: Map<string, VideoData> = new Map<string, VideoData>();
+    public videoCache: Map<string, VideoInfo> = new Map<string, VideoInfo>();
     public serverRooms: Map<string, RoomState> = new Map<string, RoomState>();
 
 

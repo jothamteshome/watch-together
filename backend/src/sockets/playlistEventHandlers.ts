@@ -1,6 +1,6 @@
 import { Server, Socket } from "socket.io";
-import type { PlaylistAddEvent, PlaylistNextEvent, PlaylistSelectEvent } from "../interfaces/PlaylistEvents.js";
-import type { PlaylistState } from "../interfaces/States.js";
+import type { PlaylistAddEvent, PlaylistNextEvent, PlaylistSelectEvent } from "@shared/interfaces/PlaylistEvents";
+import type { PlaylistState } from "@shared/interfaces/States";
 import { serverManager } from "../models/RoomManager.js";
 
 

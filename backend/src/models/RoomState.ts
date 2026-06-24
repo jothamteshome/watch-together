@@ -1,4 +1,4 @@
-import type { PlaylistState, VideoState } from "../interfaces/States.js";
+import type { PlaylistState, VideoState } from "@shared/interfaces/States";
 
 
 export default class RoomState {

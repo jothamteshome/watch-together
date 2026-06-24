@@ -1,5 +1,5 @@
 import { uniqueNamesGenerator, type Config, adjectives, colors, animals } from 'unique-names-generator';
-import type User from "../interfaces/User";
+import type User from "@shared/interfaces/User";
 
 
 const usernameConfig: Config = {
