@@ -1,6 +1,8 @@
 services:
   watch-together:
-    build: .
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
     env_file: .env
     ports:
       - "4000:4000"

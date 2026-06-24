@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - 'frontend/**'
+      - 'shared/**'
       - '.github/workflows/deploy-frontend.yml'
 
 jobs:
