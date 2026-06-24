@@ -1,5 +1,5 @@
 import { BaseVideoManager } from "./BaseVideoManager";
-import { type VideoState } from "@shared/interfaces/States";
+import type { VideoState } from "@shared/interfaces/States";
 import type { VideoService } from "@shared/interfaces/VideoService";
 import { socket } from "../services/socket";
 

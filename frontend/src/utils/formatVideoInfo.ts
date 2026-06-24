@@ -33,7 +33,7 @@ export function formatExactDate(timestamp: number | null | undefined): string {
 }
 
 
-export function formatYoutubeDate(timestamp: number | null | undefined): string {
+export function formatRelativeDate(timestamp: number | null | undefined): string {
     if (timestamp == null || !Number.isFinite(timestamp)) return "";
 
     const now = new Date();
