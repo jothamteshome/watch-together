@@ -147,14 +147,14 @@ export default function RoomPage() {
       {/* Content area — below lg: player, queue, metadata stacked in that order.
           At lg+: player + metadata form the left column, queue spans beside both as the right column. */}
       <div className="lg:w-[95%] w-full flex-1 p-4">
-        <div className="w-full grid grid-cols-1 lg:grid-cols-[1fr_clamp(16.25rem,25%,35rem)] gap-y-2 gap-x-4">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-[1fr_clamp(16.25rem,25%,35rem)] gap-y-2 gap-x-4 lg:relative">
           {/* Video player — containers are always in the DOM to support manager init */}
           <div className="order-1 lg:order-none lg:col-start-1 lg:row-start-1 lg:min-w-0 w-full flex flex-col">
             <VideoPlayer currentService={videoInfo?.service} />
           </div>
 
           {/* Queue */}
-          <div className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:max-h-200 max-h-100 flex flex-col">
+          <div className="order-2 lg:order-none lg:absolute lg:inset-y-0 lg:right-0 lg:w-[clamp(16.25rem,25%,35rem)] lg:max-h-200 max-h-100 flex flex-col">
             <Playlist
               videos={playlistVideos}
               currentIndex={currentPlaylistIndex}
