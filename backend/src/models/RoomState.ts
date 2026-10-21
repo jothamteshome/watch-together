@@ -5,10 +5,12 @@ export default class RoomState {
     private playlistState: PlaylistState | null = null;
     private videoState: VideoState | null = null;
     private users: Set<string> = new Set<string>();
+    private deleteTimeoutId: NodeJS.Timeout | null = null;
 
 
     public addUser(socketId: string) {
         this.users.add(socketId);
+        this.cancelScheduledDeletion();
     }
 
     public removeUser(socketId: string) {
@@ -17,6 +19,18 @@ export default class RoomState {
 
     public getUsers(): Set<string> {
         return this.users;
+    }
+
+    public scheduleDeletion(callback: () => void, delayMs: number) {
+        this.cancelScheduledDeletion();
+        this.deleteTimeoutId = setTimeout(callback, delayMs);
+    }
+
+    public cancelScheduledDeletion() {
+        if (this.deleteTimeoutId) {
+            clearTimeout(this.deleteTimeoutId);
+            this.deleteTimeoutId = null;
+        }
     }
 
     public getVideoState(): VideoState | null {

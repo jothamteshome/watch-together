@@ -6,6 +6,8 @@ import { serverManager } from "../models/RoomManager.js";
 import generateUser from "../utils/generateUser.js";
 import type RoomState from "../models/RoomState.js";
 
+const ROOM_EMPTY_DELETE_DELAY_MS = 1000 * 60 * 60; // 1 hour
+
 
 /**
  * Handle room join events from socket.IO
@@ -17,6 +19,7 @@ function joinRoom(io: Server, socket: Socket, roomId: string) {
   if (!roomState) return;
 
   roomState.addUser(socket.id);
+  socket.data.roomId = roomId;
 
   serverManager.serverRooms.set(roomId, roomState);
   serverManager.serverUsers.set(socket.id, generateUser(socket.id));
@@ -41,6 +44,7 @@ function leaveRoom(io: Server, socket: Socket, roomId: string) {
 
   // Remove user from room users
   disconnectCleanup(socket, roomId, serverManager.serverRooms.get(roomId));
+  delete socket.data.roomId;
 }
 
 
@@ -51,11 +55,11 @@ function leaveRoom(io: Server, socket: Socket, roomId: string) {
 function disconnect(io: Server, socket: Socket) {
   console.log("User disconnected:", socket.id);
 
-  // Run cleanup function for each room in socket
-  for (const roomId of Object.keys(serverManager.serverRooms)) {
-    handleChatDisconnect(io, socket, roomId);
-    disconnectCleanup(socket, roomId, serverManager.serverRooms.get(roomId));
-  }
+  const roomId: string | undefined = socket.data.roomId;
+  if (!roomId) return;
+
+  handleChatDisconnect(io, socket, roomId);
+  disconnectCleanup(socket, roomId, serverManager.serverRooms.get(roomId));
 }
 
 
@@ -77,12 +81,13 @@ function disconnectCleanup(socket: Socket, roomId: string, roomState?: RoomState
     serverManager.serverUsers.delete(socket.id);
   }
 
-  // If users list for room is empty, delete room entirely
+  // If users list for room is empty, schedule the room for deletion. addUser()
+  // cancels this automatically if someone rejoins before it fires.
   if (users.size === 0) {
-    setTimeout(() => {
+    roomState.scheduleDeletion(() => {
       serverManager.serverRooms.delete(roomId);
       console.log(`Room ${roomId} deleted because it is empty`);
-    }, 1000 * 60 * 60); // 1 hour timeout before deleting room
+    }, ROOM_EMPTY_DELETE_DELAY_MS);
   }
 }
 
