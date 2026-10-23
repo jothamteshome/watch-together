@@ -3,10 +3,12 @@ import ChatManager from "./ChatManager";
 import PlaylistManager from "./PlaylistManager";
 import YoutubeManager from "./YoutubeManager";
 import type ChatMessage from "@shared/interfaces/ChatMessage";
+import type User from "@shared/interfaces/User";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
 import type { PlaylistState, VideoState } from "@shared/interfaces/States";
 import type { VideoService } from "@shared/interfaces/VideoService";
 import { socket } from "../services/socket";
+import { getOrCreateProfile } from "../utils/identity";
 
 
 
@@ -61,14 +63,16 @@ export default class RoomManager {
      * Connects the socket (if needed) and joins the room. Room membership is
      * independent of any specific video service's player lifecycle.
      */
-    private joinRoom = (): void => {
+    private joinRoom = async (): Promise<void> => {
+        const user: User = await getOrCreateProfile();
+
         if (!socket.connected) {
             socket.connect();
             socket.once("connect", () => {
-                socket.emit("room:join", { roomId: this.roomId });
+                socket.emit("room:join", { roomId: this.roomId, user });
             });
         } else {
-            socket.emit("room:join", { roomId: this.roomId });
+            socket.emit("room:join", { roomId: this.roomId, user });
         }
     };
 
