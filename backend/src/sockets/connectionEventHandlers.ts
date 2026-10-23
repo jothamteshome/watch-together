@@ -3,8 +3,9 @@ import { handleChatJoinRoom, handleChatLeaveRoom, handleChatDisconnect } from ".
 import { handlePlaylistJoinRoomSync } from "./playlistEventHandlers.js";
 import { handleVideoJoinRoomSync } from "./videoEventHandlers.js";
 import { serverManager } from "../models/RoomManager.js";
-import generateUser from "../utils/generateUser.js";
 import type RoomState from "../models/RoomState.js";
+import type { RoomJoinEvent } from "@shared/interfaces/RoomEvents";
+import type User from "@shared/interfaces/User";
 
 const ROOM_EMPTY_DELETE_DELAY_MS = 1000 * 60 * 60; // 1 hour
 
@@ -14,7 +15,7 @@ const ROOM_EMPTY_DELETE_DELAY_MS = 1000 * 60 * 60; // 1 hour
  * @param socket The current socket
  * @param roomId The current roomId to handle join events for
  */
-function joinRoom(io: Server, socket: Socket, roomId: string) {
+function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
   const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
   if (!roomState) return;
 
@@ -22,13 +23,13 @@ function joinRoom(io: Server, socket: Socket, roomId: string) {
   socket.data.roomId = roomId;
 
   serverManager.serverRooms.set(roomId, roomState);
-  serverManager.serverUsers.set(socket.id, generateUser(socket.id));
+  serverManager.registerConnection(socket.id, user);
 
   // Join the room
   socket.join(roomId);
 
   // Log user joining room
-  console.log(`${socket.id} joined room ${roomId}`);
+  console.log(`${socket.id} joined room ${roomId} as user ${user.id} (${user.username})`);
 
   handleVideoJoinRoomSync(socket, roomId);
   handlePlaylistJoinRoomSync(socket, roomId);
@@ -76,9 +77,9 @@ function disconnectCleanup(socket: Socket, roomId: string, roomState?: RoomState
 
   // If socket id exists in room users, remove from rooms users
   if (users.has(socket.id)) {
-    console.log(`Deleting user ${socket.id} from users`);
+    console.log(`Removing socket ${socket.id} from room users`);
     users.delete(socket.id);
-    serverManager.serverUsers.delete(socket.id);
+    serverManager.disconnectSocket(socket.id);
   }
 
   // If users list for room is empty, schedule the room for deletion. addUser()
@@ -96,7 +97,7 @@ export default function registerConnectionEventHandlers(io: Server, socket: Sock
   console.log("New client connected:", socket.id);
 
   // Join room
-  socket.on("room:join", ({ roomId }: { roomId: string }) => joinRoom(io, socket, roomId));
+  socket.on("room:join", ({ roomId, user }: RoomJoinEvent) => joinRoom(io, socket, roomId, user));
 
   // Leave room
   socket.on("room:leave", ({ roomId }: { roomId: string }) => leaveRoom(io, socket, roomId));

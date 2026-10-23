@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import { createServer } from "http";
 import { Server } from "socket.io";
 import roomRoutes from "./routes/roomRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 import videoApiRoutes from "./routes/videoApiRoutes.js"
 import { registerChatEventHandlers } from './sockets/chatEventHandlers.js';
 import registerConnectionEventHandlers from './sockets/connectionEventHandlers.js';
@@ -34,6 +35,7 @@ app.use(express.json());
 
 // Routes
 app.use("/v1/rooms", roomRoutes);
+app.use("/v1/users", userRoutes);
 app.use("/v1/video-api", videoApiRoutes)
 app.get('/health', (req, res) => {
   console.log(`[${getFormattedDate()}] health check - OK`);

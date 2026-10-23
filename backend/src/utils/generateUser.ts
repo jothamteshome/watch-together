@@ -1,4 +1,5 @@
 import { uniqueNamesGenerator, type Config, adjectives, colors, animals } from 'unique-names-generator';
+import { nanoid } from 'nanoid';
 import type User from "@shared/interfaces/User";
 
 
@@ -10,12 +11,12 @@ const usernameConfig: Config = {
 };
 
 
-export default function generateUser(socketId: string): User {
+export default function generateUser(): User {
     const username: string = uniqueNamesGenerator(usernameConfig);
     const icon: string = `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`;
 
     const userData: User = {
-        id: socketId,
+        id: nanoid(),
         username: username,
         icon: icon
     };

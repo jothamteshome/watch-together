@@ -9,7 +9,7 @@ import { serverManager } from "../models/RoomManager.js";
 
 export function handleChatJoinRoom(io: Server, socket: Socket, roomId: string) {
     const systemUser: User | undefined = serverManager.serverUsers.get('system');
-    const leavingUser: User | undefined = serverManager.serverUsers.get(socket.id);
+    const leavingUser: User | undefined = serverManager.getUserBySocket(socket.id);
     const leavingUserName: string = leavingUser ? leavingUser.username : socket.id;
 
     const joinMessage: ChatMessage = {
@@ -28,7 +28,7 @@ export function handleChatJoinRoom(io: Server, socket: Socket, roomId: string) {
 
 
 function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMessageEvent) {
-    const user: User | undefined = serverManager.serverUsers.get(socket.id);
+    const user: User | undefined = serverManager.getUserBySocket(socket.id);
 
     // Build user message
     const userMessage: ChatMessage = {
@@ -50,7 +50,7 @@ function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMess
 
 export function handleChatLeaveRoom(io: Server, socket: Socket, roomId: string) {
     const systemUser: User | undefined = serverManager.serverUsers.get('system');
-    const leavingUser: User | undefined = serverManager.serverUsers.get(socket.id);
+    const leavingUser: User | undefined = serverManager.getUserBySocket(socket.id);
     const leavingUserName: string = leavingUser ? leavingUser.username : socket.id;
 
     const leaveMessage: ChatMessage = {
@@ -70,7 +70,7 @@ export function handleChatLeaveRoom(io: Server, socket: Socket, roomId: string) 
 
 export function handleChatDisconnect(io: Server, socket: Socket, roomId: string) {
     const systemUser: User | undefined = serverManager.serverUsers.get('system');
-    const leavingUser: User | undefined = serverManager.serverUsers.get(socket.id);
+    const leavingUser: User | undefined = serverManager.getUserBySocket(socket.id);
     const leavingUserName: string = leavingUser ? leavingUser.username : socket.id;
 
     const disconnectMessage: ChatMessage = {
