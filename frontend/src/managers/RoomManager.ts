@@ -6,11 +6,12 @@ import YoutubeManager from "./YoutubeManager";
 import type ChatMessage from "@shared/interfaces/ChatMessage";
 import type RoomSnapshot from "@shared/interfaces/RoomSnapshot";
 import type User from "@shared/interfaces/User";
+import type { UserUpdateEvent } from "@shared/interfaces/UserEvents";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
 import type { PlaylistState, VideoState } from "@shared/interfaces/States";
 import type { VideoService } from "@shared/interfaces/VideoService";
 import { socket } from "../services/socket";
-import { getOrCreateProfile } from "../utils/identity";
+import { getOrCreateProfile, saveProfile } from "../utils/identity";
 
 
 
@@ -32,6 +33,7 @@ export default class RoomManager {
     private usersManager: UsersManager = new UsersManager();
     private selfUser?: User;
     private onVideoChange: () => void;
+    private updateSelfUserUI: (user: User) => void;
 
 
 
@@ -39,10 +41,12 @@ export default class RoomManager {
         roomId: string,
         onVideoChange: () => void,
         updatePlaylistUI: (videos: string[], index: number) => void,
-        updateChatUI: (messages: ChatMessage[]) => void
+        updateChatUI: (messages: ChatMessage[]) => void,
+        updateSelfUserUI: (user: User) => void
     ) {
         this.roomId = roomId;
         this.onVideoChange = onVideoChange;
+        this.updateSelfUserUI = updateSelfUserUI;
 
         this.videoManagers = {
             youtube: new YoutubeManager(this.roomId, this.onVideoEnd)
@@ -70,6 +74,22 @@ export default class RoomManager {
         socket.on("chat:sync", (msg: ChatMessage) => this.chatManager.add(msg));
         socket.on("room:sync", (snapshot: RoomSnapshot) => this.handleRoomSync(snapshot));
         socket.on("user:joined", (user: User) => this.usersManager.setUser(user));
+        socket.on("user:updated", (user: User) => this.handleUserUpdated(user));
+    };
+
+
+    /**
+     * Applies a server-confirmed profile change. If it's this client's own user (including
+     * a rename made from another tab), the local profile is refreshed and persisted too.
+     */
+    private handleUserUpdated = (user: User): void => {
+        this.usersManager.setUser(user);
+
+        if (user.id !== this.selfUser?.id) return;
+
+        this.selfUser = user;
+        saveProfile(user);
+        this.updateSelfUserUI(user);
     };
 
 
@@ -86,6 +106,7 @@ export default class RoomManager {
     private joinRoom = async (): Promise<void> => {
         const user: User = await getOrCreateProfile();
         this.selfUser = user;
+        this.updateSelfUserUI(user);
 
         if (!socket.connected) {
             socket.connect();
@@ -210,6 +231,16 @@ export default class RoomManager {
 
 
     /**
+     * Requests a change to this user's name and/or icon. The local profile is only updated
+     * (and persisted) once the server confirms it via user:updated, so a rejected change
+     * never ends up in localStorage.
+     */
+    public updateProfile = (changes: UserUpdateEvent): void => {
+        socket.emit("user:updated", changes);
+    };
+
+
+    /**
      * Fetches metadata for the currently active video from the appropriate service manager.
      * Returns null if no video is loaded or the fetch fails.
      */
@@ -246,6 +277,7 @@ export default class RoomManager {
         socket.off("chat:sync");
         socket.off("room:sync");
         socket.off("user:joined");
+        socket.off("user:updated");
         Object.values(this.videoManagers).forEach(manager => manager.destroy());
     }
 }

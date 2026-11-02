@@ -10,6 +10,7 @@ import videoApiRoutes from "./routes/videoApiRoutes.js"
 import { registerChatEventHandlers } from './sockets/chatEventHandlers.js';
 import registerConnectionEventHandlers from './sockets/connectionEventHandlers.js';
 import { registerPlaylistEventHandlers } from './sockets/playlistEventHandlers.js';
+import { registerUserEventHandlers } from './sockets/userEventHandlers.js';
 import { registerVideoEventHandlers } from './sockets/videoEventHandlers.js';
 import getFormattedDate from "./utils/date.js";
 
@@ -52,6 +53,7 @@ io.on("connection", (socket) => {
   registerVideoEventHandlers(io, socket);
   registerPlaylistEventHandlers(io, socket);
   registerChatEventHandlers(io, socket);
+  registerUserEventHandlers(io, socket);
 });
 
 const BACKEND_PORT = process.env.BACKEND_PORT;

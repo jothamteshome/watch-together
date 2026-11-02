@@ -63,6 +63,15 @@ export default class RoomState {
         }
     }
 
+    /**
+     * Replaces the room's copy of a user's profile. Takes a whole new User rather than
+     * editing the stored one, since chat messages still reference the old object.
+     */
+    public updateUser(user: User) {
+        const existingUser: RoomUserEntry | undefined = this.users[user.id];
+        if (existingUser) existingUser.user = user;
+    }
+
     public getUsers(): Record<string, User> {
         return Object.fromEntries(Object.entries(this.users).map(([id, e]) => [id, e.user]));
     }

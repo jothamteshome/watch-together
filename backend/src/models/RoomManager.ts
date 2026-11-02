@@ -1,6 +1,7 @@
 import RoomState from "./RoomState.js";
 import type { VideoState, PlaylistState } from "@shared/interfaces/States";
 import type User from "@shared/interfaces/User";
+import type { UserUpdateEvent } from "@shared/interfaces/UserEvents";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
 
 
@@ -100,6 +101,23 @@ class ServerManager {
     public getUserBySocket(socketId: string): User | undefined {
         const userId = this.socketUserIds.get(socketId);
         return userId ? this.serverUsers.get(userId) : undefined;
+    }
+
+
+    /**
+     * Applies a profile change for the user behind a socket and returns the updated profile.
+     *
+     * This deliberately replaces the stored User with a new object instead of editing
+     * it in place: the old object is still referenced by every ChatMessage that user
+     * has sent, and those messages must keep the name/icon they were sent with.
+     */
+    public updateUser(socketId: string, changes: UserUpdateEvent): User | undefined {
+        const user = this.getUserBySocket(socketId);
+        if (!user) return undefined;
+
+        const updatedUser: User = { ...user, ...changes };
+        this.serverUsers.set(user.id, updatedUser);
+        return updatedUser;
     }
 
 

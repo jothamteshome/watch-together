@@ -6,6 +6,8 @@ import VideoPlayer from "../components/room/VideoPlayer";
 import VideoMetadataPanel from "../components/video/VideoMetadataPanel";
 import Playlist from "../components/playlist/Playlist";
 import type ChatMessage from "@shared/interfaces/ChatMessage";
+import type User from "@shared/interfaces/User";
+import type { UserUpdateEvent } from "@shared/interfaces/UserEvents";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
 import RoomManager from "../managers/RoomManager";
 import { checkRoomExists } from "../services/room";
@@ -22,6 +24,7 @@ export default function RoomPage() {
   const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(-1);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatNotifications, setChatNotifications] = useState<number>(0);
+  const [selfUser, setSelfUser] = useState<User | undefined>();
 
   const chatMessageLengthRef = useRef(0);
   // Tracked via ref, not state — read inside updateChatUI, which is captured once by the
@@ -87,7 +90,7 @@ export default function RoomPage() {
       setChatNotifications(prev => prev + newNotifications);
     };
 
-    roomManagerRef.current = new RoomManager(roomId, onVideoChanged, updatePlaylistUI, updateChatUI);
+    roomManagerRef.current = new RoomManager(roomId, onVideoChanged, updatePlaylistUI, updateChatUI, setSelfUser);
 
     return () => roomManagerRef.current?.destroy();
   }, [roomId, roomStatus]);
@@ -110,6 +113,12 @@ export default function RoomPage() {
   const sendChatMessage = (msg: string) => {
     if (!roomId || !roomManagerRef.current) return;
     roomManagerRef.current.sendChatMessage(msg);
+  };
+
+
+  const updateProfile = (changes: UserUpdateEvent) => {
+    if (!roomId || !roomManagerRef.current) return;
+    roomManagerRef.current.updateProfile(changes);
   };
 
 
@@ -141,6 +150,8 @@ export default function RoomPage() {
         clearChatNotifications={() => setChatNotifications(0)}
         sendChatMessage={sendChatMessage}
         onChatOpenChange={(isOpen: boolean) => { isChatOpenRef.current = isOpen; }}
+        user={selfUser}
+        updateProfile={updateProfile}
       />
 
       {/* Content area — below lg: player, queue, metadata stacked in that order.

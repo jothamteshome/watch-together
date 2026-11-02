@@ -8,6 +8,17 @@ async function fetchGeneratedUser(): Promise<User> {
 }
 
 /**
+ * Persists this browser's profile so it's resent on every room join.
+ */
+export function saveProfile(profile: User): void {
+    try {
+        localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    } catch {
+        // can't persist — a fresh profile will be generated again next time
+    }
+}
+
+/**
  * Returns this browser's persisted profile, generating and storing a random
  * one (via the backend) the first time it's needed.
  */
@@ -20,12 +31,7 @@ export async function getOrCreateProfile(): Promise<User> {
     }
 
     const profile: User = await fetchGeneratedUser();
-
-    try {
-        localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
-    } catch {
-        // can't persist — a fresh profile will be generated again next time
-    }
+    saveProfile(profile);
 
     return profile;
 }
