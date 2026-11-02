@@ -12,17 +12,6 @@ class ServerManager {
     public serverRooms: Map<string, RoomState> = new Map<string, RoomState>();
 
 
-    constructor() {
-        const systemUser: User = {
-            id: 'system',
-            username: "[SYSTEM]",
-            icon: `https://api.dicebear.com/7.x/identicon/svg?seed=system`
-        }
-
-        this.serverUsers.set('system', systemUser);
-    }
-
-
     public createRoom(roomId: string) {
         const roomState: RoomState = new RoomState();
 

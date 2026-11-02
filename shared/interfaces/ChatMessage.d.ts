@@ -1,9 +1,9 @@
+import type User from "./User";
+
 export default interface ChatMessage {
     id: string;
-    author: string;
-    authorIcon?: string | undefined;
-    authorId?: string | undefined;
-    text: string;
+    user: User;                                        // sender (or, for system events, the subject), as of send time
     timestamp: number;
-    isSystemMessage: boolean;
+    text?: string;                                     // present for regular messages
+    systemEvent?: "joined" | "left" | "disconnected";  // present for system messages
 }

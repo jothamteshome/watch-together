@@ -2,6 +2,17 @@ import UserIcon from "../user/UserIcon";
 import type ChatMessage from "@shared/interfaces/ChatMessage";
 
 
+// System messages are about a real user (msg.user) but displayed as authored by [SYSTEM].
+const SYSTEM_AUTHOR = "[SYSTEM]";
+const SYSTEM_ICON = "https://api.dicebear.com/7.x/identicon/svg?seed=system";
+
+const SYSTEM_EVENT_TEXT: Record<NonNullable<ChatMessage["systemEvent"]>, string> = {
+    joined: "has joined the room.",
+    left: "has left the room.",
+    disconnected: "has disconnected from the room."
+};
+
+
 interface MessageMetadataProps {
     author?: string;
     timestamp: number;
@@ -92,11 +103,18 @@ function IconColumn({ authorIcon, showHeader }: IconColumnProps) {
 
 export default function Message({ message, ref, showHeader }: ChatMessageProps) {
     const spacingStyle = showHeader ? "mt-4" : "mt-0.5";
+    const isSystemMessage = !!message.systemEvent;
+
+    const author = isSystemMessage ? SYSTEM_AUTHOR : message.user.username;
+    const authorIcon = isSystemMessage ? SYSTEM_ICON : message.user.icon;
+    const messageText = message.systemEvent
+        ? `${message.user.username} ${SYSTEM_EVENT_TEXT[message.systemEvent]}`
+        : message.text ?? "";
 
     return (
         <div ref={ref} className={`w-full flex ${spacingStyle}`}>
-            <IconColumn authorIcon={message.authorIcon} showHeader={showHeader} />
-            <ContentColumn author={message.author} timestamp={message.timestamp} messageText={message.text} isSystemMessage={message.isSystemMessage} showHeader={showHeader} />
+            <IconColumn authorIcon={authorIcon} showHeader={showHeader} />
+            <ContentColumn author={author} timestamp={message.timestamp} messageText={messageText} isSystemMessage={isSystemMessage} showHeader={showHeader} />
         </div>
     );
 }

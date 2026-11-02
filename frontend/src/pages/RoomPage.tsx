@@ -9,7 +9,6 @@ import type ChatMessage from "@shared/interfaces/ChatMessage";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
 import RoomManager from "../managers/RoomManager";
 import { checkRoomExists } from "../services/room";
-import { socket } from "../services/socket";
 
 
 export default function RoomPage() {
@@ -81,7 +80,7 @@ export default function RoomPage() {
       const newMessages = messages.slice(chatMessageLengthRef.current);
       const newNotifications = isChatOpenRef.current
         ? 0
-        : newMessages.filter((m) => m.authorId !== socket.id).length;
+        : newMessages.filter((m) => m.user.id !== roomManagerRef.current?.selfUserId).length;
 
       setChatMessages(messages);
       chatMessageLengthRef.current = messages.length;

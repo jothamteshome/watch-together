@@ -9,16 +9,14 @@ import { serverManager } from "../models/RoomManager.js";
 
 function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMessageEvent) {
     const user: User | undefined = serverManager.getUserBySocket(socket.id);
+    if (!user) return;
 
     // Build user message
     const userMessage: ChatMessage = {
         id: nanoid(8),
-        author: user ? user.username : socket.id,
-        authorIcon: user?.icon,
-        authorId: socket.id,
+        user,
         text: msg,
-        timestamp: Date.now(),
-        isSystemMessage: false
+        timestamp: Date.now()
     }
 
 
@@ -31,17 +29,14 @@ function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMess
 
 
 export function handleChatLeaveRoom(io: Server, socket: Socket, roomId: string) {
-    const systemUser: User | undefined = serverManager.serverUsers.get('system');
     const leavingUser: User | undefined = serverManager.getUserBySocket(socket.id);
-    const leavingUserName: string = leavingUser ? leavingUser.username : socket.id;
+    if (!leavingUser) return;
 
     const leaveMessage: ChatMessage = {
         id: nanoid(8),
-        author: systemUser ? systemUser.username : "[SYSTEM]",
-        authorIcon: systemUser?.icon,
-        text: `${leavingUserName} has left the room.`,
+        user: leavingUser,
         timestamp: Date.now(),
-        isSystemMessage: true
+        systemEvent: "left"
     };
 
     serverManager.serverRooms.get(roomId)?.addChatMessage(leaveMessage);
@@ -53,17 +48,14 @@ export function handleChatLeaveRoom(io: Server, socket: Socket, roomId: string) 
 
 
 export function handleChatDisconnect(io: Server, socket: Socket, roomId: string) {
-    const systemUser: User | undefined = serverManager.serverUsers.get('system');
     const leavingUser: User | undefined = serverManager.getUserBySocket(socket.id);
-    const leavingUserName: string = leavingUser ? leavingUser.username : socket.id;
+    if (!leavingUser) return;
 
     const disconnectMessage: ChatMessage = {
         id: nanoid(8),
-        author: systemUser ? systemUser.username : "[SYSTEM]",
-        authorIcon: systemUser?.icon,
-        text: `${leavingUserName} has disconnected from the room.`,
+        user: leavingUser,
         timestamp: Date.now(),
-        isSystemMessage: true
+        systemEvent: "disconnected"
     };
 
     serverManager.serverRooms.get(roomId)?.addChatMessage(disconnectMessage);

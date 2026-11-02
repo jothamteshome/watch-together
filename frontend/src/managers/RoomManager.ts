@@ -30,6 +30,7 @@ export default class RoomManager {
     private playlistManager: PlaylistManager;
     private chatManager: ChatManager;
     private usersManager: UsersManager = new UsersManager();
+    private selfUser?: User;
     private onVideoChange: () => void;
 
 
@@ -55,6 +56,14 @@ export default class RoomManager {
     }
 
 
+    /**
+     * The current user's id, or undefined until their profile has been resolved in joinRoom().
+     */
+    get selfUserId(): string | undefined {
+        return this.selfUser?.id;
+    }
+
+
     private registerSocketEvents = (): void => {
         socket.on("video:sync", (state: VideoState) => this.syncVideo(state));
         socket.on("playlist:sync", (state: PlaylistState) => this.syncPlaylist(state));
@@ -76,6 +85,7 @@ export default class RoomManager {
      */
     private joinRoom = async (): Promise<void> => {
         const user: User = await getOrCreateProfile();
+        this.selfUser = user;
 
         if (!socket.connected) {
             socket.connect();
