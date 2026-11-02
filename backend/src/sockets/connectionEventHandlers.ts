@@ -20,6 +20,9 @@ function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
   const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
   if (!roomState) return;
 
+  // Only the user's first socket in the room counts as them joining it
+  const isNewMember = !roomState.hasUser(user.id);
+
   roomState.addUser(user, socket.id);
   socket.data.roomId = roomId;
 
@@ -34,7 +37,7 @@ function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
 
   handleVideoJoinRoomSync(socket, roomId);
   handlePlaylistJoinRoomSync(socket, roomId);
-  emitRoomSync(io, socket, roomId, roomState);
+  emitRoomSync(io, socket, roomId, roomState, isNewMember);
 }
 
 
@@ -42,10 +45,13 @@ function leaveRoom(io: Server, socket: Socket, roomId: string) {
   socket.leave(roomId);
   console.log(`${socket.id} left room ${roomId}`);
 
-  handleChatLeaveRoom(io, socket, roomId);
+  // Resolve the user first: cleanup unregisters the socket
+  const user: User | undefined = serverManager.getUserBySocket(socket.id);
 
   // Remove user from room users
-  disconnectCleanup(socket, roomId, serverManager.serverRooms.get(roomId));
+  const userLeftRoom = disconnectCleanup(socket, roomId, serverManager.serverRooms.get(roomId));
+  if (user && userLeftRoom) handleChatLeaveRoom(io, roomId, user);
+
   delete socket.data.roomId;
 }
 
@@ -60,8 +66,11 @@ function disconnect(io: Server, socket: Socket) {
   const roomId: string | undefined = socket.data.roomId;
   if (!roomId) return;
 
-  handleChatDisconnect(io, socket, roomId);
-  disconnectCleanup(socket, roomId, serverManager.serverRooms.get(roomId));
+  // Resolve the user first: cleanup unregisters the socket
+  const user: User | undefined = serverManager.getUserBySocket(socket.id);
+
+  const userLeftRoom = disconnectCleanup(socket, roomId, serverManager.serverRooms.get(roomId));
+  if (user && userLeftRoom) handleChatDisconnect(io, roomId, user);
 }
 
 
@@ -69,17 +78,20 @@ function disconnect(io: Server, socket: Socket) {
  * Helper function to cleanup unused rooms from in-memory store
  * @param socket The current socket being disconnected from
  * @param roomId The current roomId to remove the socket from
+ * @returns true if this was the user's last socket in the room, i.e. the user has left it
  */
-function disconnectCleanup(socket: Socket, roomId: string, roomState?: RoomState) {
-  if (!roomState) return;
+function disconnectCleanup(socket: Socket, roomId: string, roomState?: RoomState): boolean {
+  if (!roomState) return false;
 
   // Get userId from socket id of user in room
   const userId = serverManager.socketUserIds.get(socket.id);
+  let userLeftRoom = false;
 
   // If socket id exists in room users, remove from rooms users
   if (userId && roomState.removeUser(userId, socket.id)) {
     console.log(`Removing socket ${socket.id} from room users`);
     serverManager.disconnectSocket(socket.id);
+    userLeftRoom = !roomState.hasUser(userId);
   }
 
   // If users list for room is empty, schedule the room for deletion. addUser()
@@ -90,6 +102,8 @@ function disconnectCleanup(socket: Socket, roomId: string, roomState?: RoomState
       console.log(`Room ${roomId} deleted because it is empty`);
     }, ROOM_EMPTY_DELETE_DELAY_MS);
   }
+
+  return userLeftRoom;
 }
 
 

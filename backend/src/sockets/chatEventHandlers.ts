@@ -28,10 +28,7 @@ function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMess
 };
 
 
-export function handleChatLeaveRoom(io: Server, socket: Socket, roomId: string) {
-    const leavingUser: User | undefined = serverManager.getUserBySocket(socket.id);
-    if (!leavingUser) return;
-
+export function handleChatLeaveRoom(io: Server, roomId: string, leavingUser: User) {
     const leaveMessage: ChatMessage = {
         id: nanoid(8),
         user: leavingUser,
@@ -47,10 +44,7 @@ export function handleChatLeaveRoom(io: Server, socket: Socket, roomId: string) 
 }
 
 
-export function handleChatDisconnect(io: Server, socket: Socket, roomId: string) {
-    const leavingUser: User | undefined = serverManager.getUserBySocket(socket.id);
-    if (!leavingUser) return;
-
+export function handleChatDisconnect(io: Server, roomId: string, leavingUser: User) {
     const disconnectMessage: ChatMessage = {
         id: nanoid(8),
         user: leavingUser,

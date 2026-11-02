@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type SubmitEvent } from "react";
 import UserIcon from "./UserIcon";
 import useClickOutside from "../../hooks/useClickOutside";
 import type User from "@shared/interfaces/User";
@@ -33,7 +33,7 @@ export default function UserMenu({ user, onUpdate }: UserMenuProps) {
     const trimmedName = draftName.trim();
     const canSave = trimmedName !== "" && trimmedName !== user.username;
 
-    const handleSubmit = (e: FormEvent) => {
+    const handleSubmit = (e: SubmitEvent) => {
         e.preventDefault();
         if (!canSave) return;
 

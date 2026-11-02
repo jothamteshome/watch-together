@@ -2,10 +2,6 @@ import UserIcon from "../user/UserIcon";
 import type ChatMessage from "@shared/interfaces/ChatMessage";
 
 
-// System messages are about a real user (msg.user) but displayed as authored by [SYSTEM].
-const SYSTEM_AUTHOR = "[SYSTEM]";
-const SYSTEM_ICON = "https://api.dicebear.com/7.x/identicon/svg?seed=system";
-
 const SYSTEM_EVENT_TEXT: Record<NonNullable<ChatMessage["systemEvent"]>, string> = {
     joined: "has joined the room.",
     left: "has left the room.",
@@ -16,7 +12,6 @@ const SYSTEM_EVENT_TEXT: Record<NonNullable<ChatMessage["systemEvent"]>, string>
 interface MessageMetadataProps {
     author?: string;
     timestamp: number;
-    isSystemMessage: boolean;
 }
 
 
@@ -29,7 +24,6 @@ interface ContentColumnProps {
     author?: string;
     timestamp: number;
     messageText: string;
-    isSystemMessage: boolean;
     showHeader: boolean;
 }
 
@@ -47,7 +41,7 @@ interface ChatMessageProps {
 }
 
 
-function MessageMetadata({ author, timestamp, isSystemMessage }: MessageMetadataProps) {
+function formatTimestamp(timestamp: number): string {
     const date: Date = new Date(timestamp);
     const formattedDateString: string = date.toLocaleString(undefined, {
         year: "numeric",
@@ -60,12 +54,15 @@ function MessageMetadata({ author, timestamp, isSystemMessage }: MessageMetadata
         minute: "2-digit"
     });
 
-    const systemAuthorStyle: string = isSystemMessage ? "text-red-500" : "text-white";
+    return `${formattedDateString} ${formattedTimeString}`;
+}
 
+
+function MessageMetadata({ author, timestamp }: MessageMetadataProps) {
     return (
-        <div className={`w-full flex items-end py-1 ${systemAuthorStyle}`}>
+        <div className="w-full flex items-end py-1 text-white">
             { author && <p className="leading-none break-all">{author}</p>}
-            <p className="text-xs text-neutral-400 ml-2 break-all">{`${formattedDateString} ${formattedTimeString}`}</p>
+            <p className="text-xs text-neutral-400 ml-2 break-all">{formatTimestamp(timestamp)}</p>
         </div>
     );
 }
@@ -80,10 +77,10 @@ function MessageText({ messageText }: MessageTextProps) {
 }
 
 
-function ContentColumn({ author, timestamp, messageText, isSystemMessage, showHeader }: ContentColumnProps) {
+function ContentColumn({ author, timestamp, messageText, showHeader }: ContentColumnProps) {
     return (
         <div className="flex-1 flex-col">
-            {showHeader && <MessageMetadata author={author} timestamp={timestamp} isSystemMessage={isSystemMessage} />}
+            {showHeader && <MessageMetadata author={author} timestamp={timestamp} />}
             <MessageText messageText={messageText} />
         </div>
     );
@@ -102,19 +99,25 @@ function IconColumn({ authorIcon, showHeader }: IconColumnProps) {
 
 
 export default function Message({ message, ref, showHeader }: ChatMessageProps) {
-    const spacingStyle = showHeader ? "mt-4" : "mt-0.5";
-    const isSystemMessage = !!message.systemEvent;
+    // System messages are about a real user (msg.user) and render as a small centered note
+    if (message.systemEvent) {
+        return (
+            <div
+                ref={ref}
+                title={formatTimestamp(message.timestamp)}
+                className="w-full mt-2 px-2 text-center text-xs italic text-neutral-400 break-words"
+            >
+                {`${message.user.username} ${SYSTEM_EVENT_TEXT[message.systemEvent]}`}
+            </div>
+        );
+    }
 
-    const author = isSystemMessage ? SYSTEM_AUTHOR : message.user.username;
-    const authorIcon = isSystemMessage ? SYSTEM_ICON : message.user.icon;
-    const messageText = message.systemEvent
-        ? `${message.user.username} ${SYSTEM_EVENT_TEXT[message.systemEvent]}`
-        : message.text ?? "";
+    const spacingStyle = showHeader ? "mt-4" : "mt-0.5";
 
     return (
         <div ref={ref} className={`w-full flex ${spacingStyle}`}>
-            <IconColumn authorIcon={authorIcon} showHeader={showHeader} />
-            <ContentColumn author={author} timestamp={message.timestamp} messageText={messageText} isSystemMessage={isSystemMessage} showHeader={showHeader} />
+            <IconColumn authorIcon={message.user.icon} showHeader={showHeader} />
+            <ContentColumn author={message.user.username} timestamp={message.timestamp} messageText={message.text ?? ""} showHeader={showHeader} />
         </div>
     );
 }

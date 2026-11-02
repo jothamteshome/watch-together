@@ -44,6 +44,10 @@ export default class RoomState {
         this.cancelScheduledDeletion();
     }
 
+    public hasUser(userId: string): boolean {
+        return Object.hasOwn(this.users, userId);
+    }
+
     public removeUser(userId: string, socketId: string): boolean {
         const existingUser: RoomUserEntry | undefined = this.users[userId];
 
