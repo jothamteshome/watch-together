@@ -1,5 +1,6 @@
 import type { Server, Socket } from "socket.io";
-import { handleChatJoinRoom, handleChatLeaveRoom, handleChatDisconnect } from "./chatEventHandlers.js";
+import { handleChatLeaveRoom, handleChatDisconnect } from "./chatEventHandlers.js";
+import { emitRoomSync } from "./roomSyncHandlers.js";
 import { handlePlaylistJoinRoomSync } from "./playlistEventHandlers.js";
 import { handleVideoJoinRoomSync } from "./videoEventHandlers.js";
 import { serverManager } from "../models/RoomManager.js";
@@ -19,7 +20,7 @@ function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
   const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
   if (!roomState) return;
 
-  roomState.addUser(socket.id);
+  roomState.addUser(user, socket.id);
   socket.data.roomId = roomId;
 
   serverManager.serverRooms.set(roomId, roomState);
@@ -33,7 +34,7 @@ function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
 
   handleVideoJoinRoomSync(socket, roomId);
   handlePlaylistJoinRoomSync(socket, roomId);
-  handleChatJoinRoom(io, socket, roomId);
+  emitRoomSync(io, socket, roomId, roomState);
 }
 
 
@@ -72,19 +73,18 @@ function disconnect(io: Server, socket: Socket) {
 function disconnectCleanup(socket: Socket, roomId: string, roomState?: RoomState) {
   if (!roomState) return;
 
-  // Get set of users in room
-  const users: Set<string> = roomState.getUsers();
+  // Get userId from socket id of user in room
+  const userId = serverManager.socketUserIds.get(socket.id);
 
   // If socket id exists in room users, remove from rooms users
-  if (users.has(socket.id)) {
+  if (userId && roomState.removeUser(userId, socket.id)) {
     console.log(`Removing socket ${socket.id} from room users`);
-    users.delete(socket.id);
     serverManager.disconnectSocket(socket.id);
   }
 
   // If users list for room is empty, schedule the room for deletion. addUser()
   // cancels this automatically if someone rejoins before it fires.
-  if (users.size === 0) {
+  if (roomState.getUserCount() === 0) {
     roomState.scheduleDeletion(() => {
       serverManager.serverRooms.delete(roomId);
       console.log(`Room ${roomId} deleted because it is empty`);

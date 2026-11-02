@@ -7,26 +7,6 @@ import { serverManager } from "../models/RoomManager.js";
 
 
 
-export function handleChatJoinRoom(io: Server, socket: Socket, roomId: string) {
-    const systemUser: User | undefined = serverManager.serverUsers.get('system');
-    const leavingUser: User | undefined = serverManager.getUserBySocket(socket.id);
-    const leavingUserName: string = leavingUser ? leavingUser.username : socket.id;
-
-    const joinMessage: ChatMessage = {
-        id: nanoid(8),
-        author: systemUser ? systemUser.username : "[SYSTEM]",
-        authorIcon: systemUser?.icon,
-        text: `${leavingUserName} has joined the room.`,
-        timestamp: Date.now(),
-        isSystemMessage: true
-    };
-
-    // Emit join message to all clients
-    console.log("Sending join message");
-    io.to(roomId).emit("chat:sync", joinMessage);
-}
-
-
 function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMessageEvent) {
     const user: User | undefined = serverManager.getUserBySocket(socket.id);
 
@@ -41,6 +21,8 @@ function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMess
         isSystemMessage: false
     }
 
+
+    serverManager.serverRooms.get(roomId)?.addChatMessage(userMessage);
 
     console.log(`Broadcasting chat:message in room ${roomId}`);
     console.log(userMessage);
@@ -62,6 +44,8 @@ export function handleChatLeaveRoom(io: Server, socket: Socket, roomId: string) 
         isSystemMessage: true
     };
 
+    serverManager.serverRooms.get(roomId)?.addChatMessage(leaveMessage);
+
     // Emit leave message to all clients
     console.log("Sending leave message");
     io.to(roomId).emit("chat:sync", leaveMessage);
@@ -81,6 +65,8 @@ export function handleChatDisconnect(io: Server, socket: Socket, roomId: string)
         timestamp: Date.now(),
         isSystemMessage: true
     };
+
+    serverManager.serverRooms.get(roomId)?.addChatMessage(disconnectMessage);
 
     // Emit leave message to all clients
     console.log("Sending disconnect message");

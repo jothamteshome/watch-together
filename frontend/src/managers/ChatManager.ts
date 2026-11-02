@@ -25,6 +25,12 @@ export default class ChatManager {
     }
 
 
+    public hydrate(messages: ChatMessage[]) {
+        this.chat.replace(messages);
+        this.updateChatUI(this.chat.getChatLog());
+    }
+
+
     /**
      * Cleans up all resources associated with this RoomManager,
      * including socket listeners and video manager instances.

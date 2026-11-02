@@ -1,8 +1,10 @@
 import { BaseVideoManager } from "./BaseVideoManager";
 import ChatManager from "./ChatManager";
 import PlaylistManager from "./PlaylistManager";
+import UsersManager from "./UsersManager";
 import YoutubeManager from "./YoutubeManager";
 import type ChatMessage from "@shared/interfaces/ChatMessage";
+import type RoomSnapshot from "@shared/interfaces/RoomSnapshot";
 import type User from "@shared/interfaces/User";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
 import type { PlaylistState, VideoState } from "@shared/interfaces/States";
@@ -27,6 +29,7 @@ export default class RoomManager {
     private videoManagers: Record<VideoService, BaseVideoManager>;
     private playlistManager: PlaylistManager;
     private chatManager: ChatManager;
+    private usersManager: UsersManager = new UsersManager();
     private onVideoChange: () => void;
 
 
@@ -56,6 +59,14 @@ export default class RoomManager {
         socket.on("video:sync", (state: VideoState) => this.syncVideo(state));
         socket.on("playlist:sync", (state: PlaylistState) => this.syncPlaylist(state));
         socket.on("chat:sync", (msg: ChatMessage) => this.chatManager.add(msg));
+        socket.on("room:sync", (snapshot: RoomSnapshot) => this.handleRoomSync(snapshot));
+        socket.on("user:joined", (user: User) => this.usersManager.setUser(user));
+    };
+
+
+    private handleRoomSync = (snapshot: RoomSnapshot): void => {
+        this.usersManager.hydrate(snapshot.users);
+        this.chatManager.hydrate(snapshot.chatHistory);
     };
 
 
@@ -223,6 +234,8 @@ export default class RoomManager {
         socket.off("playlist:sync");
         socket.off("video:sync");
         socket.off("chat:sync");
+        socket.off("room:sync");
+        socket.off("user:joined");
         Object.values(this.videoManagers).forEach(manager => manager.destroy());
     }
 }

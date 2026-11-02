@@ -1,24 +1,74 @@
+import type ChatMessage from "@shared/interfaces/ChatMessage";
 import type { PlaylistState, VideoState } from "@shared/interfaces/States";
+import type User from "@shared/interfaces/User";
+
+const MAX_CHAT_HISTORY = 200;
+
+export interface RoomUserEntry {
+    user: User;
+    socketIds: Record<string, true>;
+}
 
 
 export default class RoomState {
     private playlistState: PlaylistState | null = null;
     private videoState: VideoState | null = null;
-    private users: Set<string> = new Set<string>();
+    private users: Record<string, RoomUserEntry> = {};
+    private chatHistory: ChatMessage[] = [];
     private deleteTimeoutId: NodeJS.Timeout | null = null;
 
 
-    public addUser(socketId: string) {
-        this.users.add(socketId);
+    public addChatMessage(msg: ChatMessage) {
+        this.chatHistory.push(msg);
+        if (this.chatHistory.length > MAX_CHAT_HISTORY) {
+            this.chatHistory.shift();
+        }
+    }
+
+    public getChatHistory(): ChatMessage[] {
+        return [ ...this.chatHistory ];
+    }
+
+
+    public addUser(user: User, socketId: string) {
+        const existingUser: RoomUserEntry | undefined = this.users[user.id];
+
+        if (!existingUser) {
+            const newUser: RoomUserEntry = {user, socketIds: {[socketId]: true}};
+            this.users[user.id] = newUser;
+        } else if (!Object.hasOwn(existingUser.socketIds, socketId)) {
+            existingUser.user = user;
+            existingUser.socketIds[socketId] = true;
+        }
+
         this.cancelScheduledDeletion();
     }
 
-    public removeUser(socketId: string) {
-        this.users.delete(socketId);
+    public removeUser(userId: string, socketId: string): boolean {
+        const existingUser: RoomUserEntry | undefined = this.users[userId];
+
+        if (!existingUser) {
+            return false;
+        }
+        else if (!Object.hasOwn(existingUser.socketIds, socketId)) {
+            return false;
+        } else {
+            delete existingUser.socketIds[socketId];
+
+            if (Object.keys(existingUser.socketIds).length === 0) {
+                delete this.users[userId];
+            }
+
+            return true;
+        }
     }
 
-    public getUsers(): Set<string> {
-        return this.users;
+    public getUsers(): Record<string, User> {
+        return Object.fromEntries(Object.entries(this.users).map(([id, e]) => [id, e.user]));
+    }
+
+    public getUserCount(): number {
+        return Object.keys(this.users).length;
     }
 
     public scheduleDeletion(callback: () => void, delayMs: number) {
