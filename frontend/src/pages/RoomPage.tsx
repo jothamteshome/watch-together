@@ -25,6 +25,7 @@ export default function RoomPage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatNotifications, setChatNotifications] = useState<number>(0);
   const [selfUser, setSelfUser] = useState<User | undefined>();
+  const [roomUsers, setRoomUsers] = useState<User[]>([]);
 
   const chatMessageLengthRef = useRef(0);
   // Tracked via ref, not state — read inside updateChatUI, which is captured once by the
@@ -90,7 +91,7 @@ export default function RoomPage() {
       setChatNotifications(prev => prev + newNotifications);
     };
 
-    roomManagerRef.current = new RoomManager(roomId, onVideoChanged, updatePlaylistUI, updateChatUI, setSelfUser);
+    roomManagerRef.current = new RoomManager(roomId, onVideoChanged, updatePlaylistUI, updateChatUI, setSelfUser, setRoomUsers);
 
     return () => roomManagerRef.current?.destroy();
   }, [roomId, roomStatus]);
@@ -151,6 +152,7 @@ export default function RoomPage() {
         sendChatMessage={sendChatMessage}
         onChatOpenChange={(isOpen: boolean) => { isChatOpenRef.current = isOpen; }}
         user={selfUser}
+        users={roomUsers}
         updateProfile={updateProfile}
       />
 

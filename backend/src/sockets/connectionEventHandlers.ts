@@ -50,7 +50,10 @@ function leaveRoom(io: Server, socket: Socket, roomId: string) {
 
   // Remove user from room users
   const userLeftRoom = disconnectCleanup(socket, roomId, serverManager.serverRooms.get(roomId));
-  if (user && userLeftRoom) handleChatLeaveRoom(io, roomId, user);
+  if (user && userLeftRoom) {
+    handleChatLeaveRoom(io, roomId, user);
+    io.to(roomId).emit("user:left", user.id);
+  }
 
   delete socket.data.roomId;
 }
@@ -70,7 +73,10 @@ function disconnect(io: Server, socket: Socket) {
   const user: User | undefined = serverManager.getUserBySocket(socket.id);
 
   const userLeftRoom = disconnectCleanup(socket, roomId, serverManager.serverRooms.get(roomId));
-  if (user && userLeftRoom) handleChatDisconnect(io, roomId, user);
+  if (user && userLeftRoom) {
+    handleChatDisconnect(io, roomId, user);
+    io.to(roomId).emit("user:left", user.id);
+  }
 }
 
 

@@ -30,7 +30,7 @@ export default class RoomManager {
     private videoManagers: Record<VideoService, BaseVideoManager>;
     private playlistManager: PlaylistManager;
     private chatManager: ChatManager;
-    private usersManager: UsersManager = new UsersManager();
+    private usersManager: UsersManager;
     private selfUser?: User;
     private onVideoChange: () => void;
     private updateSelfUserUI: (user: User) => void;
@@ -42,7 +42,8 @@ export default class RoomManager {
         onVideoChange: () => void,
         updatePlaylistUI: (videos: string[], index: number) => void,
         updateChatUI: (messages: ChatMessage[]) => void,
-        updateSelfUserUI: (user: User) => void
+        updateSelfUserUI: (user: User) => void,
+        updateUsersUI: (users: User[]) => void
     ) {
         this.roomId = roomId;
         this.onVideoChange = onVideoChange;
@@ -54,6 +55,7 @@ export default class RoomManager {
 
         this.playlistManager = new PlaylistManager(updatePlaylistUI);
         this.chatManager = new ChatManager(updateChatUI);
+        this.usersManager = new UsersManager(updateUsersUI);
 
         this.registerSocketEvents();
         this.joinRoom();
@@ -75,6 +77,7 @@ export default class RoomManager {
         socket.on("room:sync", (snapshot: RoomSnapshot) => this.handleRoomSync(snapshot));
         socket.on("user:joined", (user: User) => this.usersManager.setUser(user));
         socket.on("user:updated", (user: User) => this.handleUserUpdated(user));
+        socket.on("user:left", (userId: string) => this.usersManager.removeUser(userId));
     };
 
 
@@ -278,6 +281,7 @@ export default class RoomManager {
         socket.off("room:sync");
         socket.off("user:joined");
         socket.off("user:updated");
+        socket.off("user:left");
         Object.values(this.videoManagers).forEach(manager => manager.destroy());
     }
 }
