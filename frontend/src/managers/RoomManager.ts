@@ -34,6 +34,7 @@ export default class RoomManager {
     private selfUser?: User;
     private onVideoChange: () => void;
     private updateSelfUserUI: (user: User) => void;
+    private isDestroyed = false;
 
 
 
@@ -108,17 +109,25 @@ export default class RoomManager {
      */
     private joinRoom = async (): Promise<void> => {
         const user: User = await getOrCreateProfile();
+
+        if (this.isDestroyed) return;
+
         this.selfUser = user;
         this.updateSelfUserUI(user);
 
         if (!socket.connected) {
             socket.connect();
-            socket.once("connect", () => {
-                socket.emit("room:join", { roomId: this.roomId, user });
-            });
+            socket.once("connect", () => this.emitJoin(user));
         } else {
-            socket.emit("room:join", { roomId: this.roomId, user });
+            this.emitJoin(user);
         }
+    };
+
+
+    private emitJoin = (user: User): void => {
+        if (this.isDestroyed) return;
+
+        socket.emit("room:join", { roomId: this.roomId, user });
     };
 
 
@@ -275,6 +284,9 @@ export default class RoomManager {
 
 
     destroy() {
+        this.isDestroyed = true;
+        socket.emit("room:leave", { roomId: this.roomId });
+
         socket.off("playlist:sync");
         socket.off("video:sync");
         socket.off("chat:sync");
