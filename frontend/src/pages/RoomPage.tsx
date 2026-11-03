@@ -74,17 +74,15 @@ export default function RoomPage() {
     };
 
 
-    const updateChatUI = (messages: ChatMessage[]) => {
+    const updateChatUI = (messages: ChatMessage[], isHistory: boolean) => {
       if (!roomId || !roomManagerRef.current) return;
 
-      // Don't notify for messages this client sent itself — the server broadcasts
-      // chat:sync to the sender too, so self-authored messages would otherwise
-      // always bump the unread badge. Also don't notify at all while the chat is
-      // already open, since the user is actively seeing messages arrive in real time.
+      // Don't notify for messages this client sent itself, while chat is
+      // open, or for chat history sync.
       const newMessages = messages.slice(chatMessageLengthRef.current);
-      const newNotifications = isChatOpenRef.current
+      const newNotifications = isChatOpenRef.current || isHistory
         ? 0
-        : newMessages.filter((m) => m.user.id !== roomManagerRef.current?.selfUserId).length;
+        : newMessages.filter((m) => !m.systemEvent && m.user.id !== roomManagerRef.current?.selfUserId).length;
 
       setChatMessages(messages);
       chatMessageLengthRef.current = messages.length;

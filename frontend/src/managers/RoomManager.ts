@@ -41,7 +41,7 @@ export default class RoomManager {
         roomId: string,
         onVideoChange: () => void,
         updatePlaylistUI: (videos: string[], index: number) => void,
-        updateChatUI: (messages: ChatMessage[]) => void,
+        updateChatUI: (messages: ChatMessage[], isHistory: boolean) => void,
         updateSelfUserUI: (user: User) => void,
         updateUsersUI: (users: User[]) => void
     ) {

@@ -8,26 +8,26 @@ import ChatLog from "../models/ChatLog";
  */
 export default class ChatManager {
     private chat: ChatLog = new ChatLog();
-    private updateChatUI: (messages: ChatMessage[]) => void;
+    private updateChatUI: (messages: ChatMessage[], isHistory: boolean) => void;
 
 
     /**
      * Creates a new ChatManager instance.
      */
-    constructor(updateChatUI: (messages: ChatMessage[]) => void) {
+    constructor(updateChatUI: (messages: ChatMessage[], isHistory: boolean) => void) {
         this.updateChatUI = updateChatUI;
     }
 
 
     public add(msg: ChatMessage) {
         this.chat.add(msg);
-        this.updateChatUI(this.chat.getChatLog());
+        this.updateChatUI(this.chat.getChatLog(), false);
     }
 
 
     public hydrate(messages: ChatMessage[]) {
         this.chat.replace(messages);
-        this.updateChatUI(this.chat.getChatLog());
+        this.updateChatUI(this.chat.getChatLog(), true);
     }
 
 

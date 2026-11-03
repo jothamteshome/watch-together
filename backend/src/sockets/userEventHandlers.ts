@@ -47,19 +47,26 @@ function parseUserUpdate(changes: UserUpdateEvent): UserUpdateEvent | null {
 
 
 function handleUserUpdate(io: Server, socket: Socket, changes: UserUpdateEvent) {
-    const roomId: string | undefined = socket.data.roomId;
-    if (!roomId) return;
-
     const parsed = parseUserUpdate(changes);
     if (!parsed) return;
 
     const updatedUser: User | undefined = serverManager.updateUser(socket.id, parsed);
     if (!updatedUser) return;
 
-    serverManager.serverRooms.get(roomId)?.updateUser(updatedUser);
+    // One user can have sockets in several rooms (e.g. tabs in different rooms), and
+    // every one of those rooms holds its own copy of the profile.
+    const roomIds = new Set<string>();
+    for (const socketId of serverManager.userSockets.get(updatedUser.id) ?? []) {
+        const roomId: string | undefined = io.sockets.sockets.get(socketId)?.data.roomId;
+        if (roomId) roomIds.add(roomId);
+    }
 
-    console.log(`User ${updatedUser.id} updated their profile in room ${roomId}`);
-    io.to(roomId).emit("user:updated", updatedUser);
+    for (const roomId of roomIds) {
+        serverManager.serverRooms.get(roomId)?.updateUser(updatedUser);
+
+        console.log(`User ${updatedUser.id} updated their profile in room ${roomId}`);
+        io.to(roomId).emit("user:updated", updatedUser);
+    }
 }
 
 

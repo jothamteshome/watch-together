@@ -28,7 +28,8 @@ export default function OnlineUsersButton({ users, selfUserId }: OnlineUsersButt
                 className={`flex items-center gap-1 p-2 rounded-full hover:bg-gray-100/10 cursor-pointer ${isOpen ? "bg-gray-100/10" : ""}`}
             >
                 <Users className="w-5 h-5 stroke-neutral-500" />
-                <span className="text-sm text-neutral-400">{users.length}</span>
+                {/* Hidden until the room snapshot arrives, so it doesn't flash 0 */}
+                {users.length > 0 && <span className="text-sm text-neutral-400">{users.length}</span>}
             </button>
 
             {isOpen && (
