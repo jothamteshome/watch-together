@@ -1,8 +1,6 @@
 import type { Server, Socket } from "socket.io";
 import { handleChatLeaveRoom, handleChatDisconnect } from "./chatEventHandlers.js";
 import { emitRoomSync } from "./roomSyncHandlers.js";
-import { handlePlaylistJoinRoomSync } from "./playlistEventHandlers.js";
-import { handleVideoJoinRoomSync } from "./videoEventHandlers.js";
 import { serverManager } from "../models/RoomManager.js";
 import type RoomState from "../models/RoomState.js";
 import type { RoomJoinEvent } from "@shared/interfaces/RoomEvents";
@@ -35,8 +33,6 @@ function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
   // Log user joining room
   console.log(`${socket.id} joined room ${roomId} as user ${user.id} (${user.username})`);
 
-  handleVideoJoinRoomSync(socket, roomId);
-  handlePlaylistJoinRoomSync(socket, roomId);
   emitRoomSync(io, socket, roomId, roomState, isNewMember);
 }
 

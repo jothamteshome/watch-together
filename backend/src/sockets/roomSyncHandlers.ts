@@ -5,10 +5,11 @@ import type RoomSnapshot from "@shared/interfaces/RoomSnapshot";
 import type User from "@shared/interfaces/User";
 import { serverManager } from "../models/RoomManager.js";
 import type RoomState from "../models/RoomState.js";
+import { getJoinVideoState } from "./videoEventHandlers.js";
 
 
 /**
- * Sends the joining socket a snapshot of the room (users + chat history). If this is
+ * Sends the joining socket a snapshot of the room (users, chat, video and playlist). If this is
  * the user's first socket in the room, the join is also announced to everyone else;
  * a second tab of a user who is already in the room joins silently.
  */
@@ -29,7 +30,12 @@ export function emitRoomSync(io: Server, socket: Socket, roomId: string, roomSta
         socket.broadcast.to(roomId).emit("chat:sync", joinMessage);
     }
 
-    const snapshot: RoomSnapshot = { users: roomState.getUsers(), chatHistory: roomState.getChatHistory() };
+    const snapshot: RoomSnapshot = {
+        users: roomState.getUsers(),
+        chatHistory: roomState.getChatHistory(),
+        video: getJoinVideoState(roomId),
+        playlist: roomState.getPlaylistState()
+    };
     socket.emit("room:sync", snapshot);
 
     if (newUser && isNewMember) socket.broadcast.to(roomId).emit("user:joined", newUser);

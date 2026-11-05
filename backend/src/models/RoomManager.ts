@@ -18,6 +18,7 @@ class ServerManager {
 
         const videoState: VideoState = {
             eventId: 0,
+            itemId: null,
             videoUrl: null,
             videoService: null,
             currentTime: 0,

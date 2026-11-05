@@ -1,12 +1,19 @@
 import type { Server, Socket } from "socket.io";
-import type { VideoSetEvent, VideoUpdateEvent } from "@shared/interfaces/VideoEvents";
+import type { VideoUpdateEvent } from "@shared/interfaces/VideoEvents";
 import type { VideoState } from "@shared/interfaces/States";
+import type PlaylistItem from "@shared/interfaces/PlaylistItem";
 import { serverManager } from "../models/RoomManager.js";
 
 
-export function handleVideoJoinRoomSync(socket: Socket, roomId: string) {
+/**
+ * Projects the room's video state forward to now for a joining client, and re-anchors the
+ * stored state to the same moment
+ * @param roomId    The room being joined
+ * @returns The state to send the joiner, or null if the room has none
+ */
+export function getJoinVideoState(roomId: string): VideoState | null {
     const videoState: VideoState | null = serverManager.getVideoState(roomId);
-    if (!videoState) return;
+    if (!videoState) return null;
 
     const elapsed = videoState.isPlaying ? (Date.now() - videoState.lastUpdate) / 1000 : 0;
 
@@ -19,26 +26,27 @@ export function handleVideoJoinRoomSync(socket: Socket, roomId: string) {
     serverManager.serverRooms.get(roomId)?.setVideoState(newState);
 
     console.log("Video state", newState);
-    socket.emit("video:sync", newState);
+    return newState;
 }
 
 
 /**
- * Handle video set events from socket.IO
- * @param io                        The server instance handling events
- * @param videoEvent.roomId         The current roomId to handle events for
- * @param videoEvent.videoUrl       The URL of the new video
- * @param videoEvent.videoService   The service the video belongs to
+ * Start a playlist item for the whole room. Called by the playlist handlers; clients never
+ * start videos themselves.
+ * @param io        The server instance handling events
+ * @param roomId    The room to start the video in
+ * @param item      The playlist item to load, from 0:00
  */
-function handleSetVideo(io: Server, { roomId, videoUrl, videoService }: VideoSetEvent) {
-    console.log(`Setting video: ${videoUrl} in ${roomId}`);
+export function setVideoItem(io: Server, roomId: string, item: PlaylistItem) {
+    console.log(`Setting video: ${item.videoUrl} in ${roomId}`);
 
     const videoState: VideoState | null = serverManager.getVideoState(roomId);
     if (!videoState) return;
 
     videoState.eventId += 1;
-    videoState.videoUrl = videoUrl;
-    videoState.videoService = videoService ?? null;
+    videoState.itemId = item.id;
+    videoState.videoUrl = item.videoUrl;
+    videoState.videoService = item.videoService;
     videoState.currentTime = 0;
     videoState.isPlaying = true;
     videoState.playbackRate = 1;
@@ -124,7 +132,6 @@ function handleUpdateVideo(io: Server, { roomId, time, playbackRate, eventId }: 
 
 
 export function registerVideoEventHandlers(io: Server, socket: Socket) {
-    socket.on("video:set", (event: VideoSetEvent) => handleSetVideo(io, event));
     socket.on("video:play", (event: VideoUpdateEvent) => handlePlayVideo(io, event));
     socket.on("video:pause", (event: VideoUpdateEvent) => handlePauseVideo(io, event));
     socket.on("video:seek", (event: VideoUpdateEvent) => handleUpdateVideo(io, event));
