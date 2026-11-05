@@ -54,11 +54,13 @@ export abstract class BaseVideoManager {
     public abstract extractId(url: string): string | null;
 
     /**
-     * Loads a new video by URL at the given start time.
-     * `eventId` must be set to the server's current eventId so that subsequent
-     * play/pause/seek events emitted by this client are accepted by the server.
+     * Loads a new video by URL at `state.currentTime`. It plays if `state.isPlaying`
+     * and is cued (paused) otherwise.
+     * Adopts `state.eventId`, so that subsequent play/pause/seek events emitted by this
+     * client are accepted by the server.
+     * Applying a load never emits to the room.
      */
-    public abstract loadVideo(url: string, startTime: number, eventId: number): void;
+    public abstract loadVideo(url: string, state: VideoState): void;
 
     /**
      * Fetches metadata for the given video URL from the backend.

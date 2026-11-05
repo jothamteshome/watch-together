@@ -1,11 +1,12 @@
+import type PlaylistItem from "@shared/interfaces/PlaylistItem";
 import type { PlaylistState } from "@shared/interfaces/States";
 
 export default class Playlist {
-    private items: string[] = [];
+    private items: PlaylistItem[] = [];
     private currentIndex: number = -1;
     private isLooping: boolean = false;
 
-    public add(item: string) {
+    public add(item: PlaylistItem) {
         this.items.push(item);
     };
 
@@ -33,24 +34,14 @@ export default class Playlist {
     }
 
 
-    get current(): string {
-        return this.items[this.currentIndex];
-    }
-
-
     get length(): number {
         return this.items.length;
     }
 
 
-    public getPlaylist(): string[] {
+    public getPlaylist(): PlaylistItem[] {
         return [ ...this.items ];
     };
-
-
-    public getCurrentIndex(): number {
-        return this.currentIndex;
-    }
 
 
 }

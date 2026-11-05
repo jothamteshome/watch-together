@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import PlaylistControls from "./PlaylistControls";
 import PlaylistVideoList from "./PlaylistVideoList";
+import type PlaylistItem from "@shared/interfaces/PlaylistItem";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
 
 
 interface PlayistProps {
-    videos: string[];
+    videos: PlaylistItem[];
     currentIndex: number;
     onVideoSelect: (index: number) => void;
     fetchVideoInfo: (videoUrl: string) => Promise<VideoInfo | null>;

@@ -6,6 +6,7 @@ import VideoPlayer from "../components/room/VideoPlayer";
 import VideoMetadataPanel from "../components/video/VideoMetadataPanel";
 import Playlist from "../components/playlist/Playlist";
 import type ChatMessage from "@shared/interfaces/ChatMessage";
+import type PlaylistItem from "@shared/interfaces/PlaylistItem";
 import type User from "@shared/interfaces/User";
 import type { UserUpdateEvent } from "@shared/interfaces/UserEvents";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
@@ -20,7 +21,7 @@ export default function RoomPage() {
   const [roomStatus, setRoomStatus] = useState<"loading" | "found" | "not-found">("loading");
   const [url, setUrl] = useState("");
   const [videoInfo, setVideoInfo] = useState<VideoInfo | undefined>();
-  const [playlistVideos, setPlaylistVideos] = useState<string[]>([]);
+  const [playlistVideos, setPlaylistVideos] = useState<PlaylistItem[]>([]);
   const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(-1);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatNotifications, setChatNotifications] = useState<number>(0);
@@ -66,7 +67,7 @@ export default function RoomPage() {
     };
 
 
-    const updatePlaylistUI = (videos: string[], index: number) => {
+    const updatePlaylistUI = (videos: PlaylistItem[], index: number) => {
       if (!roomId || !roomManagerRef.current) return;
 
       setPlaylistVideos(videos);
