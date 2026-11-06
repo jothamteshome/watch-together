@@ -44,6 +44,16 @@
             this.setState(window.__ytAutoplayBlocked ? PlayerState.PAUSED : PlayerState.PLAYING);
         }
 
+        cueVideoById(videoId, startSeconds = 0) {
+            this.loads.push({ videoId, startSeconds });
+            this.videoId = videoId;
+            this.element.textContent = videoId;
+            this.position = startSeconds;
+            this.since = Date.now();
+            // A cued video waits for a play, as the real player's does
+            this.setState(PlayerState.CUED);
+        }
+
         seekTo(seconds) {
             this.position = seconds;
             this.since = Date.now();
