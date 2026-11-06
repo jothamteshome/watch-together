@@ -27,3 +27,6 @@ dist-ssr
 dist-e2e
 test-results
 playwright-report
+coverage
+.stryker-tmp
+reports

@@ -7,5 +7,9 @@ export default mergeConfig(viteConfig, defineConfig({
     environment: 'jsdom',
     include: ['tests/**/*.test.{ts,tsx}'],
     setupFiles: ['tests/setup.ts'],
+    coverage: {
+      include: ['src/**'],
+      reporter: ['html', 'text-summary'],
+    },
   },
 }))
