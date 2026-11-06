@@ -1,7 +1,8 @@
 import { vi } from "vitest";
 
 
-type Listener = (payload: never) => unknown;
+/** A listener, or the wrapper once() registers, which keeps the listener it wraps as `fn` */
+type Listener = ((payload: never) => unknown) & { fn?: Listener };
 
 
 /**
@@ -27,6 +28,8 @@ export class FakeSocket {
             this.off(event, wrapper);
             return listener(payload);
         };
+        // Like socket.io-client, so off(event, listener) also removes a listener added with once()
+        wrapper.fn = listener;
         return this.on(event, wrapper);
     }
 
@@ -34,7 +37,7 @@ export class FakeSocket {
     /** Like socket.io-client, omitting `listener` removes every listener for `event` */
     off(event: string, listener?: Listener): this {
         if (!listener) this.listeners.delete(event);
-        else this.listeners.set(event, (this.listeners.get(event) ?? []).filter(l => l !== listener));
+        else this.listeners.set(event, (this.listeners.get(event) ?? []).filter(l => l !== listener && l.fn !== listener));
         return this;
     }
 

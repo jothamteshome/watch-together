@@ -19,7 +19,9 @@ export type Route = { status?: number; body?: unknown } | Error;
 
 /**
  * Points the app at BACKEND_URL and replaces fetch with a router keyed by path.
- * Unrouted paths answer 404. vi.unstubAllGlobals / vi.unstubAllEnvs undo both.
+ * Unrouted paths answer 404. An error status without a body answers `{ error }`, as the backend does,
+ * so code that ignores `response.ok` can't pass by parsing a null body.
+ * vi.unstubAllGlobals / vi.unstubAllEnvs undo both.
  */
 export function stubFetch(routes: Record<string, Route> = {}) {
     vi.stubEnv("VITE_APP_BACKEND_URL", BACKEND_URL);
@@ -27,8 +29,9 @@ export function stubFetch(routes: Record<string, Route> = {}) {
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
         const route = routes[String(input).replace(BACKEND_URL, "")];
         if (route instanceof Error) throw route;
-        if (!route) return new Response(null, { status: 404 });
-        return Response.json(route.body ?? null, { status: route.status ?? 200 });
+        const status = route?.status ?? (route ? 200 : 404);
+        const body = route?.body ?? (status >= 400 ? { error: `Stubbed ${status}` } : null);
+        return Response.json(body, { status });
     });
 
     vi.stubGlobal("fetch", fetchMock);
