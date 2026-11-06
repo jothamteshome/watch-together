@@ -3,6 +3,7 @@ import { defineConfig } from "vitest/config";
 // https://vitest.dev/config/
 export default defineConfig({
   test: {
+    env: { LOG_LEVEL: "silent" },
     coverage: {
       include: ["src/**"],
       reporter: ["html", "text-summary"],

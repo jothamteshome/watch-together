@@ -3,6 +3,7 @@ import { handleChatLeaveRoom, handleChatDisconnect } from "./chatEventHandlers.j
 import { emitRoomSync } from "./roomSyncHandlers.js";
 import { serverManager } from "../models/RoomManager.js";
 import type RoomState from "../models/RoomState.js";
+import { logger } from "../utils/logger.js";
 import type { RoomJoinEvent } from "@shared/interfaces/RoomEvents";
 import type User from "@shared/interfaces/User";
 
@@ -24,7 +25,10 @@ function isUser(user: unknown): user is User {
  * @param roomId The current roomId to handle join events for
  */
 function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
-  if (!isUser(user)) return;
+  if (!isUser(user)) {
+    logger.warn({ socketId: socket.id }, "Rejected room:join with a malformed user");
+    return;
+  }
 
   const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
   if (!roomState) return;
@@ -42,7 +46,7 @@ function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
   socket.join(roomId);
 
   // Log user joining room
-  console.log(`${socket.id} joined room ${roomId} as user ${user.id} (${user.username})`);
+  logger.info({ socketId: socket.id, roomId }, "Socket joined room");
 
   emitRoomSync(io, socket, roomId, roomState, isNewMember);
 }
@@ -50,7 +54,7 @@ function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
 
 function leaveRoom(io: Server, socket: Socket, roomId: string) {
   socket.leave(roomId);
-  console.log(`${socket.id} left room ${roomId}`);
+  logger.info({ socketId: socket.id, roomId }, "Socket left room");
 
   // Resolve the user first: cleanup unregisters the socket
   const user: User | undefined = serverManager.getUserBySocket(socket.id);
@@ -71,7 +75,7 @@ function leaveRoom(io: Server, socket: Socket, roomId: string) {
  * @param socket The current socket being disconnected from
  */
 function disconnect(io: Server, socket: Socket) {
-  console.log("User disconnected:", socket.id);
+  logger.debug({ socketId: socket.id }, "Client disconnected");
 
   const roomId: string | undefined = socket.data.roomId;
   if (!roomId) return;
@@ -102,7 +106,7 @@ function disconnectCleanup(socket: Socket, roomId: string, roomState?: RoomState
 
   // If socket id exists in room users, remove from rooms users
   if (userId && roomState.removeUser(userId, socket.id)) {
-    console.log(`Removing socket ${socket.id} from room users`);
+    logger.debug({ socketId: socket.id, roomId }, "Removing socket from room users");
     serverManager.disconnectSocket(socket.id);
     userLeftRoom = !roomState.hasUser(userId);
   }
@@ -112,7 +116,7 @@ function disconnectCleanup(socket: Socket, roomId: string, roomState?: RoomState
   if (roomState.getUserCount() === 0) {
     roomState.scheduleDeletion(() => {
       serverManager.serverRooms.delete(roomId);
-      console.log(`Room ${roomId} deleted because it is empty`);
+      logger.info({ roomId }, "Room deleted because it is empty");
     }, ROOM_EMPTY_DELETE_DELAY_MS);
   }
 
@@ -121,7 +125,7 @@ function disconnectCleanup(socket: Socket, roomId: string, roomState?: RoomState
 
 
 export default function registerConnectionEventHandlers(io: Server, socket: Socket) {
-  console.log("New client connected:", socket.id);
+  logger.debug({ socketId: socket.id }, "New client connected");
 
   // Join room
   socket.on("room:join", ({ roomId, user }: RoomJoinEvent) => joinRoom(io, socket, roomId, user));

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { serverManager } from "../models/RoomManager.js";
 import videoProviders from "../services/videoProviders/index.js";
+import { logger } from "../utils/logger.js";
 import type { VideoService } from "@shared/interfaces/VideoService";
 
 
@@ -37,8 +38,8 @@ router.get("/:service/video/:id", async (req, res) => {
         }, 1000 * 60 * 60);
 
         res.json(videoInfo);
-    } catch {
-        console.error(`Error retrieving data from ${service} provider`);
+    } catch (err) {
+        logger.error({ err, service }, "Error retrieving data from video provider");
         res.status(500).json({ error: "Failed to fetch video data" });
     }
 });
