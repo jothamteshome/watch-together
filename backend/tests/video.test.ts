@@ -8,6 +8,7 @@ import {
     disconnectAll,
     joinRoom,
     NANOID_8,
+    roomBarrier,
     setupRoom,
     startItem,
     startServer,
@@ -148,6 +149,44 @@ describe("video:play / video:pause / video:seek / video:playbackrate", () => {
         };
         expect(synced).toEqual([expected, expected]);
     });
+
+    it("applies only the first of two conflicting events, so every member ends in the same state", async () => {
+        // Arrange
+        const room = await setupRoom(server.url);
+        const current = await startVideo(room);
+        const hostSyncs: VideoState[] = [];
+        const guestSyncs: VideoState[] = [];
+        room.host.on("video:sync", (state: VideoState) => hostSyncs.push(state));
+        room.guest.on("video:sync", (state: VideoState) => guestSyncs.push(state));
+
+        // Act: the host plays and the guest pauses, both against the same state
+        room.host.emit("video:play", { roomId: room.roomId, time: 20, playbackRate: 1, eventId: current.eventId });
+        room.guest.emit("video:pause", { roomId: room.roomId, time: 25, playbackRate: 1, eventId: current.eventId });
+        await roomBarrier(room.roomId, [room.host, room.guest]);
+
+        // Assert
+        expect(hostSyncs).toHaveLength(1);
+        expect(guestSyncs).toEqual(hostSyncs);
+        expect(hostSyncs[0]?.eventId).toBe(current.eventId + 1);
+    });
+
+    it("drops a seek made against the video that was playing before a select", async () => {
+        // Arrange
+        const room = await setupRoom(server.url);
+        const first = await startVideo(room);
+        await addItem(room, SECOND_URL);
+        const [selected] = await videoSync(room, room.host, "playlist:select", { index: 1 });
+
+        // Act: a seek built on the first video's state, then a current pause as the ordering barrier
+        const synced = await collectBroadcast<VideoState>([room.host, room.guest], "video:sync", () => {
+            room.guest.emit("video:seek", { roomId: room.roomId, time: 99, playbackRate: 1, eventId: first.eventId });
+            room.guest.emit("video:pause", { roomId: room.roomId, time: 5, playbackRate: 1, eventId: selected.eventId });
+        });
+
+        // Assert: the first sync is the pause, so the stale seek changed nothing
+        const expected = expect.objectContaining({ itemId: selected.itemId, eventId: selected.eventId + 1, currentTime: 5, isPlaying: false });
+        expect(synced).toEqual([expected, expected]);
+    });
 });
 
 
@@ -170,5 +209,26 @@ describe("late join", () => {
 
         // Assert
         expect(video).toMatchObject({ itemId: current.itemId, videoUrl: FIRST_URL, currentTime, isPlaying, lastUpdate: T0 + 5000 });
+    });
+
+    it("projects each of several late joiners from the room's state, without compounding the elapsed time", async () => {
+        // Arrange: playing from 10s at T0
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(T0);
+        const room = await setupRoom(server.url);
+        const current = await startVideo(room);
+        await videoSync(room, room.host, "video:play", { time: 10, playbackRate: 1, eventId: current.eventId });
+        const firstJoiner = await connectClient(server.url);
+        const secondJoiner = await connectClient(server.url);
+
+        // Act
+        vi.setSystemTime(T0 + 5000);
+        const first = await joinRoom(firstJoiner, room.roomId, testUser("First"), [room.host, room.guest]);
+        vi.setSystemTime(T0 + 8000);
+        const second = await joinRoom(secondJoiner, room.roomId, testUser("Second"), [room.host, room.guest, firstJoiner]);
+
+        // Assert
+        expect(first.video?.currentTime).toBe(15);
+        expect(second.video?.currentTime).toBe(18);
     });
 });

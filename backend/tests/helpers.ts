@@ -115,11 +115,55 @@ export async function joinRoom(client: Socket, roomId: string, user: User, obser
 /**
  * Round-trips a chat message through `roomId`. Socket.IO preserves per-socket order, so once
  * this resolves, everything the server sent `client` before handling it has been received.
+ * It waits for its own message, so other chat traffic arriving first can't release it early.
  */
-export function chatBarrier(client: Socket, roomId: string, msg = "barrier"): Promise<ChatMessage> {
-    const echoed = nextEvent<ChatMessage>(client, "chat:sync");
-    client.emit("chat:message", { roomId, msg });
-    return echoed;
+export function chatBarrier(client: Socket, roomId: string, msg = "barrier", timeoutMs = 2000): Promise<ChatMessage> {
+    return new Promise((resolve, reject) => {
+        const onChat = (message: ChatMessage) => {
+            if (message.text !== msg) return;
+            clearTimeout(timer);
+            client.off("chat:sync", onChat);
+            resolve(message);
+        };
+        const timer = setTimeout(() => {
+            client.off("chat:sync", onChat);
+            reject(new Error(`Timed out after ${timeoutMs}ms waiting for the chat barrier "${msg}"`));
+        }, timeoutMs);
+
+        client.on("chat:sync", onChat);
+        client.emit("chat:message", { roomId, msg });
+    });
+}
+
+
+/**
+ * Every member sends its own chat message and this resolves once every member has received all of them.
+ * Unlike chatBarrier, it orders traffic across senders: whatever any member sent before has been handled,
+ * and every member has received what the server broadcast for it.
+ */
+export async function roomBarrier(roomId: string, members: Socket[], timeoutMs = 2000): Promise<void> {
+    const tag = nanoid();
+    const texts = members.map((_, i) => `barrier ${tag} ${i}`);
+
+    const received = members.map(member => new Promise<void>((resolve, reject) => {
+        const pending = new Set(texts);
+        const onChat = (msg: ChatMessage) => {
+            pending.delete(msg.text ?? "");
+            if (pending.size > 0) return;
+            clearTimeout(timer);
+            member.off("chat:sync", onChat);
+            resolve();
+        };
+        const timer = setTimeout(() => {
+            member.off("chat:sync", onChat);
+            reject(new Error(`Timed out after ${timeoutMs}ms waiting for the room barrier`));
+        }, timeoutMs);
+
+        member.on("chat:sync", onChat);
+    }));
+
+    members.forEach((member, i) => member.emit("chat:message", { roomId, msg: texts[i] }));
+    await Promise.all(received);
 }
 
 
