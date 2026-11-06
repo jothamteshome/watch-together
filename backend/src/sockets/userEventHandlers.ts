@@ -2,6 +2,7 @@ import type { Server, Socket } from "socket.io";
 import type { UserUpdateEvent } from "@shared/interfaces/UserEvents";
 import type User from "@shared/interfaces/User";
 import { serverManager } from "../models/RoomManager.js";
+import { logger } from "../utils/logger.js";
 
 
 // The longest name generateUser() can produce is 38 characters, so a generated name is never rejected.
@@ -48,7 +49,10 @@ function parseUserUpdate(changes: UserUpdateEvent): UserUpdateEvent | null {
 
 function handleUserUpdate(io: Server, socket: Socket, changes: UserUpdateEvent) {
     const parsed = parseUserUpdate(changes);
-    if (!parsed) return;
+    if (!parsed) {
+        logger.warn({ socketId: socket.id }, "Rejected malformed user:updated payload");
+        return;
+    }
 
     const updatedUser: User | undefined = serverManager.updateUser(socket.id, parsed);
     if (!updatedUser) return;
@@ -64,7 +68,7 @@ function handleUserUpdate(io: Server, socket: Socket, changes: UserUpdateEvent) 
     for (const roomId of roomIds) {
         serverManager.serverRooms.get(roomId)?.updateUser(updatedUser);
 
-        console.log(`User ${updatedUser.id} updated their profile in room ${roomId}`);
+        logger.debug({ roomId, socketId: socket.id }, "User updated their profile");
         io.to(roomId).emit("user:updated", updatedUser);
     }
 }

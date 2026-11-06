@@ -104,8 +104,8 @@ export default class RoomManager {
         this.chatManager.hydrate(snapshot.chatHistory);
 
         // The video loads locally at the projected time and nothing is broadcast
-        if (snapshot.playlist) this.playlistManager.sync(snapshot.playlist);
-        if (snapshot.video) this.syncVideo(snapshot.video);
+        this.playlistManager.sync(snapshot.playlist);
+        this.syncVideo(snapshot.video);
     };
 
 

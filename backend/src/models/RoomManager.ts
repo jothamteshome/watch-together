@@ -1,5 +1,4 @@
 import RoomState from "./RoomState.js";
-import type { VideoState, PlaylistState } from "@shared/interfaces/States";
 import type User from "@shared/interfaces/User";
 import type { UserUpdateEvent } from "@shared/interfaces/UserEvents";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
@@ -14,66 +13,7 @@ class ServerManager {
 
 
     public createRoom(roomId: string) {
-        const roomState: RoomState = new RoomState();
-
-        const videoState: VideoState = {
-            eventId: 0,
-            itemId: null,
-            videoUrl: null,
-            videoService: null,
-            currentTime: 0,
-            isPlaying: false,
-            playbackRate: 1,
-            lastUpdate: Date.now()
-        }
-
-        const playlistState: PlaylistState = {
-            eventId: 0,
-            items: [],
-            currentIndex: -1,
-            isLooping: false
-        }
-
-        roomState.setVideoState(videoState);
-        roomState.setPlaylistState(playlistState);
-
-        serverManager.serverRooms.set(roomId, roomState);
-    }
-
-
-    /**
-     * Returns the VideoState for a room, or null if the room or its state doesn't exist.
-     */
-    public getVideoState(roomId: string): VideoState | null {
-        const roomState = this.serverRooms.get(roomId);
-        if (!roomState) {
-            console.log(`Room ${roomId} does not exist`);
-            return null;
-        }
-        const videoState = roomState.getVideoState();
-        if (!videoState) {
-            console.log(`Video state for room ${roomId} does not exist`);
-            return null;
-        }
-        return videoState;
-    }
-
-
-    /**
-     * Returns the PlaylistState for a room, or null if the room or its state doesn't exist.
-     */
-    public getPlaylistState(roomId: string): PlaylistState | null {
-        const roomState = this.serverRooms.get(roomId);
-        if (!roomState) {
-            console.log(`Room ${roomId} does not exist`);
-            return null;
-        }
-        const playlistState = roomState.getPlaylistState();
-        if (!playlistState) {
-            console.log(`Playlist state for room ${roomId} does not exist`);
-            return null;
-        }
-        return playlistState;
+        serverManager.serverRooms.set(roomId, new RoomState());
     }
 
 

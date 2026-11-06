@@ -5,7 +5,7 @@ import type RoomSnapshot from "@shared/interfaces/RoomSnapshot";
 import type User from "@shared/interfaces/User";
 import { serverManager } from "../models/RoomManager.js";
 import type RoomState from "../models/RoomState.js";
-import { getJoinVideoState } from "./videoEventHandlers.js";
+import { logger } from "../utils/logger.js";
 
 
 /**
@@ -26,16 +26,17 @@ export function emitRoomSync(io: Server, socket: Socket, roomId: string, roomSta
         roomState.addChatMessage(joinMessage);
 
         // The joiner gets this message through their own chatHistory below
-        console.log("Sending join message");
+        logger.debug({ roomId, socketId: socket.id }, "Sending join message");
         socket.broadcast.to(roomId).emit("chat:sync", joinMessage);
     }
 
     const snapshot: RoomSnapshot = {
         users: roomState.getUsers(),
         chatHistory: roomState.getChatHistory(),
-        video: getJoinVideoState(roomId),
+        video: roomState.projectVideoState(),
         playlist: roomState.getPlaylistState()
     };
+    logger.debug({ roomId, socketId: socket.id }, "Sending room snapshot");
     socket.emit("room:sync", snapshot);
 
     if (newUser && isNewMember) socket.broadcast.to(roomId).emit("user:joined", newUser);

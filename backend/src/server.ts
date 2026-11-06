@@ -1,8 +1,7 @@
-import dotenv from 'dotenv';
+import "dotenv/config";
 import { createAppServer } from "./app.js";
+import { logger } from "./utils/logger.js";
 
-
-dotenv.config();
 
 const { httpServer, io } = createAppServer();
 
@@ -14,4 +13,4 @@ if (!BACKEND_PORT) {
   throw new Error("BACKEND_PORT not set in production!");
 }
 
-httpServer.listen(parseInt(BACKEND_PORT), '0.0.0.0', () => console.log(`Server running on port ${BACKEND_PORT}`));
+httpServer.listen(parseInt(BACKEND_PORT), '0.0.0.0', () => logger.info({ port: BACKEND_PORT }, "Server running"));

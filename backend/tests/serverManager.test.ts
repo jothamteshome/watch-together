@@ -21,14 +21,15 @@ describe("createRoom", () => {
         const roomA = serverManager.serverRooms.get("room-a")!;
         const item: PlaylistItem = { id: "item-1", videoUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", videoService: "youtube", addedBy: USER };
 
-        // Act
-        Object.assign(roomA.getVideoState()!, { currentTime: 99, isPlaying: true });
-        roomA.getPlaylistState()!.items.push(item);
+        // Act: queueing into room A starts its video, and a seek moves it on
+        roomA.addPlaylistItem(0, item);
+        roomA.updateVideo(1, 99, 1, true);
 
         // Assert
+        expect(roomA.getVideoState()).toMatchObject({ currentTime: 99, isPlaying: true });
         const roomB = serverManager.serverRooms.get("room-b")!;
-        expect(roomB.getVideoState()).toMatchObject({ currentTime: 0, isPlaying: false });
-        expect(roomB.getPlaylistState()!.items).toEqual([]);
+        expect(roomB.getVideoState()).toMatchObject({ eventId: 0, itemId: null, currentTime: 0, isPlaying: false });
+        expect(roomB.getPlaylistState().items).toEqual([]);
     });
 });
 

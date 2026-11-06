@@ -6,6 +6,6 @@ import type User from "./User";
 export default interface RoomSnapshot {
     users: Record<string, User>;
     chatHistory: ChatMessage[];
-    video: VideoState | null;
-    playlist: PlaylistState | null;
+    video: VideoState;
+    playlist: PlaylistState;
 }

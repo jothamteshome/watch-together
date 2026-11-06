@@ -4,6 +4,7 @@ import type { ChatMessageEvent } from "@shared/interfaces/ChatEvents";
 import type ChatMessage from "@shared/interfaces/ChatMessage";
 import type User from "@shared/interfaces/User";
 import { serverManager } from "../models/RoomManager.js";
+import { logger } from "../utils/logger.js";
 
 
 
@@ -22,8 +23,8 @@ function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMess
 
     serverManager.serverRooms.get(roomId)?.addChatMessage(userMessage);
 
-    console.log(`Broadcasting chat:message in room ${roomId}`);
-    console.log(userMessage);
+    // Metadata only: the text, username and icon of a chat message are never logged
+    logger.debug({ roomId, socketId: socket.id, messageId: userMessage.id, length: msg?.length }, "Broadcasting chat:message");
     io.to(roomId).emit("chat:sync", userMessage);
 };
 
@@ -39,7 +40,7 @@ export function handleChatLeaveRoom(io: Server, roomId: string, leavingUser: Use
     serverManager.serverRooms.get(roomId)?.addChatMessage(leaveMessage);
 
     // Emit leave message to all clients
-    console.log("Sending leave message");
+    logger.debug({ roomId }, "Sending leave message");
     io.to(roomId).emit("chat:sync", leaveMessage);
 }
 
@@ -55,7 +56,7 @@ export function handleChatDisconnect(io: Server, roomId: string, leavingUser: Us
     serverManager.serverRooms.get(roomId)?.addChatMessage(disconnectMessage);
 
     // Emit leave message to all clients
-    console.log("Sending disconnect message");
+    logger.debug({ roomId }, "Sending disconnect message");
     io.to(roomId).emit("chat:sync", disconnectMessage);
 }
 

@@ -91,7 +91,11 @@ VITE_APP_BACKEND_URL=http://localhost:4000
 ```env
 BACKEND_PORT=4000
 YOUTUBE_API_KEY=your_youtube_data_api_v3_key
+# Optional: debug, info (the default), warn, error or silent
+LOG_LEVEL=info
 ```
+
+The backend logs one JSON object per line to stdout (`npm run dev` pretty-prints them). Chat text, usernames and video URLs are never logged, and a test enforces it.
 
 ---
 
