@@ -10,6 +10,7 @@ Element.prototype.scrollIntoView = () => {};
 afterEach(() => {
     cleanup();
     socket.reset();
+    localStorage.clear();
     vi.clearAllTimers();
     vi.useRealTimers();
     vi.restoreAllMocks();

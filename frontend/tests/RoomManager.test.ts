@@ -7,8 +7,13 @@ import { FakePlayer, installYoutube, latestPlayer, PlayerState } from "./fakeYou
 import {
     BACKEND_URL,
     chatMessage,
+    OTHER_USER,
+    playlistItem,
     playlistState,
     ROOM_ID,
+    roomSnapshot,
+    seedProfile,
+    SELF_USER,
     stubFetch,
     UNSUPPORTED_URL,
     VIDEO_A,
@@ -20,13 +25,34 @@ import {
 vi.mock("../src/services/socket", () => import("./fakeSocket"));
 
 
-function createManager({ connected = true } = {}) {
+/** Creates a manager for ROOM_ID; it joins once SELF_USER's stored profile has resolved, asynchronously */
+function newManager({ connected = true } = {}) {
     socket.connected = connected;
-    const onVideoChange = vi.fn();
-    const updatePlaylistUI = vi.fn();
-    const updateChatUI = vi.fn();
-    const manager = new RoomManager(ROOM_ID, onVideoChange, updatePlaylistUI, updateChatUI);
-    return { manager, onVideoChange, updatePlaylistUI, updateChatUI };
+    seedProfile();
+    const callbacks = {
+        onVideoChange: vi.fn(),
+        updatePlaylistUI: vi.fn(),
+        updateChatUI: vi.fn(),
+        updateSelfUserUI: vi.fn(),
+        updateUsersUI: vi.fn()
+    };
+    const manager = new RoomManager(
+        ROOM_ID,
+        callbacks.onVideoChange,
+        callbacks.updatePlaylistUI,
+        callbacks.updateChatUI,
+        callbacks.updateSelfUserUI,
+        callbacks.updateUsersUI
+    );
+    return { manager, ...callbacks };
+}
+
+
+/** Creates a manager and waits until it has its profile and has joined, or connected to join */
+async function createManager(options: { connected?: boolean } = {}) {
+    const created = newManager(options);
+    await vi.waitFor(() => expect(created.updateSelfUserUI).toHaveBeenCalledOnce());
+    return created;
 }
 
 
@@ -50,24 +76,26 @@ beforeEach(() => {
 
 
 describe("joining", () => {
-    it("doesn't re-set the video when the join-time playlist:sync arrives while the player is still loading", async () => {
-        // Arrange: the server's join sequence for a video 30s in, before the iframe API is ready
-        createManager();
-        const videoSynced = socket.receive("video:sync", videoState({ videoUrl: VIDEO_A, currentTime: 30, eventId: 4 }));
+    it("loads the snapshot's video at the room's time without sending anything", async () => {
+        // Arrange: the room's video is 30s in, and the iframe API isn't ready yet
+        await createManager();
+        socket.emit.mockClear();
 
         // Act
-        await socket.receive("playlist:sync", playlistState({ eventId: 1, items: [VIDEO_A], currentIndex: 0 }));
+        await socket.receive("room:sync", roomSnapshot({
+            video: videoState({ currentTime: 30, eventId: 4 }),
+            playlist: playlistState({ eventId: 1 })
+        }));
         latestPlayer().ready();
-        await videoSynced;
 
         // Assert
-        expect(socket.emitted("video:set")).toEqual([]);
-        expect(latestPlayer().loadVideoById).toHaveBeenCalledExactlyOnceWith("aaaaaaaaaaa", 30);
+        await vi.waitFor(() => expect(latestPlayer().loadVideoById).toHaveBeenCalledExactlyOnceWith("aaaaaaaaaaa", 30));
+        expect(socket.emit).not.toHaveBeenCalled();
     });
 
     it("connects a disconnected socket and joins only once it's connected", async () => {
         // Arrange
-        createManager({ connected: false });
+        await createManager({ connected: false });
         const joinsBeforeConnect = socket.emitted("room:join").length;
 
         // Act
@@ -76,128 +104,68 @@ describe("joining", () => {
         // Assert
         expect(socket.connect).toHaveBeenCalledOnce();
         expect(joinsBeforeConnect).toBe(0);
-        expect(socket.emitted("room:join")).toEqual([{ roomId: ROOM_ID }]);
+        expect(socket.emitted("room:join")).toEqual([{ roomId: ROOM_ID, user: SELF_USER }]);
     });
 
-    it("joins straight away on an already-connected socket", () => {
+    it("joins straight away on an already-connected socket, as the stored profile", async () => {
         // Arrange + Act
-        createManager({ connected: true });
+        const { updateSelfUserUI } = await createManager({ connected: true });
 
         // Assert
         expect(socket.connect).not.toHaveBeenCalled();
-        expect(socket.emitted("room:join")).toEqual([{ roomId: ROOM_ID }]);
+        expect(socket.emitted("room:join")).toEqual([{ roomId: ROOM_ID, user: SELF_USER }]);
+        expect(updateSelfUserUI).toHaveBeenCalledExactlyOnceWith(SELF_USER);
     });
 
-    it.fails("BUG B3: a manager destroyed before the socket connects doesn't join (StrictMode remount)", async () => {
+    it("doesn't join from a manager destroyed before the socket connects (StrictMode remount)", async () => {
         // Arrange: StrictMode mounts, unmounts and remounts the room before the socket connects
-        const { manager } = createManager({ connected: false });
+        const { manager } = await createManager({ connected: false });
         manager.destroy();
-        createManager({ connected: false });
+        await createManager({ connected: false });
 
         // Act
         await socket.receive("connect");
 
         // Assert
-        expect(socket.emitted("room:join")).toEqual([{ roomId: ROOM_ID }]);
+        expect(socket.emitted("room:join")).toEqual([{ roomId: ROOM_ID, user: SELF_USER }]);
+    });
+
+    it("doesn't join from a manager destroyed before its profile resolved", async () => {
+        // Arrange: the unmount comes straight after the mount, before the profile is read
+        const { manager, updateSelfUserUI } = newManager();
+        manager.destroy();
+
+        // Act
+        await createManager();
+
+        // Assert
+        expect(socket.emitted("room:join")).toEqual([{ roomId: ROOM_ID, user: SELF_USER }]);
+        expect(updateSelfUserUI).not.toHaveBeenCalled();
     });
 });
 
 
 describe("playlist:sync", () => {
-    it("sets the video once when the index moves to a different URL", async () => {
+    it("hands the playlist to the UI and leaves starting its videos to the server", async () => {
         // Arrange
-        createManager();
-        await receiveVideo(videoState({ videoUrl: VIDEO_A }));
-        await socket.receive("playlist:sync", playlistState({ eventId: 1, items: [VIDEO_A, VIDEO_B], currentIndex: 0 }));
-
-        // Act
-        await socket.receive("playlist:sync", playlistState({ eventId: 2, items: [VIDEO_A, VIDEO_B], currentIndex: 1 }));
-
-        // Assert
-        expect(socket.emitted("video:set")).toEqual([{ roomId: ROOM_ID, videoUrl: VIDEO_B, videoService: "youtube" }]);
-    });
-
-    it("doesn't set the video when an add leaves the index where it was", async () => {
-        // Arrange
-        createManager();
-        await receiveVideo(videoState({ videoUrl: VIDEO_A }));
-        await socket.receive("playlist:sync", playlistState({ eventId: 1, items: [VIDEO_A], currentIndex: 0 }));
-
-        // Act
-        await socket.receive("playlist:sync", playlistState({ eventId: 2, items: [VIDEO_A, VIDEO_B], currentIndex: 0 }));
-
-        // Assert
-        expect(socket.emitted("video:set")).toEqual([]);
-    });
-
-    it.each([
-        { case: "the playlist has ended", items: [VIDEO_A, VIDEO_B] },
-        { case: "the playlist is empty", items: [] }
-    ])("neither sets a video nor alerts when $case", async ({ items }) => {
-        // Arrange
-        createManager();
-        await receiveVideo(videoState({ videoUrl: VIDEO_A }));
-        await socket.receive("playlist:sync", playlistState({ eventId: 1, items: [VIDEO_A, VIDEO_B], currentIndex: 0 }));
-
-        // Act
-        await socket.receive("playlist:sync", playlistState({ eventId: 2, items, currentIndex: -1 }));
-
-        // Assert
-        expect(socket.emitted("video:set")).toEqual([]);
-        expect(alertSpy).not.toHaveBeenCalled();
-    });
-
-    it("alerts instead of setting a video the client can't play", async () => {
-        // Arrange
-        createManager();
-        await receiveVideo(videoState({ videoUrl: VIDEO_A }));
-        await socket.receive("playlist:sync", playlistState({ eventId: 1, items: [VIDEO_A, UNSUPPORTED_URL], currentIndex: 0 }));
-
-        // Act
-        await socket.receive("playlist:sync", playlistState({ eventId: 2, items: [VIDEO_A, UNSUPPORTED_URL], currentIndex: 1 }));
-
-        // Assert
-        expect(socket.emitted("video:set")).toEqual([]);
-        expect(alertSpy).toHaveBeenCalledExactlyOnceWith(`Unsupported video URL: ${UNSUPPORTED_URL}`);
-    });
-
-    it.fails("BUG B2: re-adding the video that just ended plays it again", async () => {
-        // Arrange: A plays to the end and the playlist ends
-        createManager();
-        await socket.receive("playlist:sync", playlistState({ eventId: 1, items: [VIDEO_A], currentIndex: 0 }));
-        await receiveVideo(videoState({ videoUrl: VIDEO_A }));
-        latestPlayer().changeState(PlayerState.ENDED);
-        await socket.receive("playlist:sync", playlistState({ eventId: 2, items: [VIDEO_A], currentIndex: -1 }));
+        const { updatePlaylistUI } = await createManager();
         socket.emit.mockClear();
-
-        // Act: someone queues A again
-        await socket.receive("playlist:sync", playlistState({ eventId: 3, items: [VIDEO_A, VIDEO_A], currentIndex: 1 }));
-
-        // Assert
-        expect(socket.emitted("video:set")).toEqual([{ roomId: ROOM_ID, videoUrl: VIDEO_A, videoService: "youtube" }]);
-    });
-
-    it.fails("BUG B2: advancing onto a repeat of the video that just ended plays it again", async () => {
-        // Arrange: A is queued twice and the first copy ends
-        createManager();
-        await socket.receive("playlist:sync", playlistState({ eventId: 1, items: [VIDEO_A, VIDEO_A], currentIndex: 0 }));
-        await receiveVideo(videoState({ videoUrl: VIDEO_A }));
-        latestPlayer().changeState(PlayerState.ENDED);
-        socket.emit.mockClear();
+        const items = [playlistItem(VIDEO_A), playlistItem(VIDEO_B)];
 
         // Act
-        await socket.receive("playlist:sync", playlistState({ eventId: 2, items: [VIDEO_A, VIDEO_A], currentIndex: 1 }));
+        await socket.receive("playlist:sync", playlistState({ eventId: 2, items, currentIndex: 1 }));
 
         // Assert
-        expect(socket.emitted("video:set")).toEqual([{ roomId: ROOM_ID, videoUrl: VIDEO_A, videoService: "youtube" }]);
+        expect(updatePlaylistUI).toHaveBeenCalledExactlyOnceWith(items, 1);
+        expect(socket.emit).not.toHaveBeenCalled();
     });
 });
 
 
 describe("video:sync", () => {
-    it("loads a new URL at the server's time and reports the video change", async () => {
+    it("loads a new item at the server's time and reports the video change", async () => {
         // Arrange
-        const { onVideoChange } = createManager();
+        const { onVideoChange } = await createManager();
 
         // Act
         await receiveVideo(videoState({ videoUrl: VIDEO_A, currentTime: 30, eventId: 4 }));
@@ -207,9 +175,9 @@ describe("video:sync", () => {
         expect(onVideoChange).toHaveBeenCalledOnce();
     });
 
-    it("drift-corrects the loaded URL instead of reloading it", async () => {
+    it("drift-corrects the loaded item instead of reloading it", async () => {
         // Arrange
-        const { onVideoChange } = createManager();
+        const { onVideoChange } = await createManager();
         await receiveVideo(videoState({ videoUrl: VIDEO_A, currentTime: 30, eventId: 4 }));
         latestPlayer().state = PlayerState.PLAYING;
 
@@ -222,9 +190,23 @@ describe("video:sync", () => {
         expect(onVideoChange).toHaveBeenCalledOnce();
     });
 
+    it("reloads the same URL from 0s when the server starts a different item, such as a repeat of the one that ended", async () => {
+        // Arrange: A plays to its end
+        const { onVideoChange } = await createManager();
+        await receiveVideo(videoState({ videoUrl: VIDEO_A, itemId: "item-a1", currentTime: 30, eventId: 4 }));
+        latestPlayer().changeState(PlayerState.ENDED);
+
+        // Act: the server starts a second copy of A
+        await receiveVideo(videoState({ videoUrl: VIDEO_A, itemId: "item-a2", currentTime: 0, eventId: 5 }));
+
+        // Assert
+        expect(latestPlayer().loadVideoById.mock.calls).toEqual([["aaaaaaaaaaa", 30], ["aaaaaaaaaaa", 0]]);
+        expect(onVideoChange).toHaveBeenCalledTimes(2);
+    });
+
     it("creates no player while the room has no video", async () => {
         // Arrange
-        const { onVideoChange } = createManager();
+        const { onVideoChange } = await createManager();
 
         // Act
         await socket.receive("video:sync", videoState({ videoUrl: null, videoService: null }));
@@ -236,7 +218,7 @@ describe("video:sync", () => {
 
     it("picks the player from the URL when the state has no service", async () => {
         // Arrange
-        createManager();
+        await createManager();
 
         // Act
         await receiveVideo(videoState({ videoUrl: VIDEO_A, videoService: null }));
@@ -247,7 +229,7 @@ describe("video:sync", () => {
 
     it("ignores a service the client doesn't support", async () => {
         // Arrange
-        const { onVideoChange } = createManager();
+        const { onVideoChange } = await createManager();
 
         // Act
         await socket.receive("video:sync", videoState({ videoUrl: VIDEO_A, videoService: "vimeo" as VideoService }));
@@ -260,48 +242,35 @@ describe("video:sync", () => {
 
 
 describe("video end", () => {
-    it("asks the server for the next playlist item", async () => {
+    it("reports which item ended, so the server can drop every other member's duplicate report", async () => {
         // Arrange
-        createManager();
-        await receiveVideo(videoState({ videoUrl: VIDEO_A }));
+        await createManager();
+        await receiveVideo(videoState({ videoUrl: VIDEO_A, itemId: "item-a1" }));
 
         // Act
         latestPlayer().changeState(PlayerState.ENDED);
 
         // Assert
-        expect(socket.emitted("playlist:next")).toEqual([expect.objectContaining({ roomId: ROOM_ID })]);
-    });
-
-    it.fails("BUG B1: sends the playlist eventId so the server can drop every viewer's duplicate next", async () => {
-        // Arrange
-        createManager();
-        await socket.receive("playlist:sync", playlistState({ eventId: 7, items: [VIDEO_A, VIDEO_B], currentIndex: 0 }));
-        await receiveVideo(videoState({ videoUrl: VIDEO_A }));
-
-        // Act
-        latestPlayer().changeState(PlayerState.ENDED);
-
-        // Assert
-        expect(socket.emitted("playlist:next")).toEqual([{ roomId: ROOM_ID, eventId: 7 }]);
+        expect(socket.emitted("playlist:next")).toEqual([{ roomId: ROOM_ID, itemId: "item-a1" }]);
     });
 });
 
 
 describe("outbound requests", () => {
-    it("queues a supported URL", () => {
+    it("queues a supported URL with its service", async () => {
         // Arrange
-        const { manager } = createManager();
+        const { manager } = await createManager();
 
         // Act
         manager.queueVideo(VIDEO_B);
 
         // Assert
-        expect(socket.emitted("playlist:add")).toEqual([{ roomId: ROOM_ID, videoUrl: VIDEO_B }]);
+        expect(socket.emitted("playlist:add")).toEqual([{ roomId: ROOM_ID, videoUrl: VIDEO_B, videoService: "youtube" }]);
     });
 
-    it("alerts instead of queueing an unsupported URL", () => {
+    it("alerts instead of queueing an unsupported URL", async () => {
         // Arrange
-        const { manager } = createManager();
+        const { manager } = await createManager();
 
         // Act
         manager.queueVideo(UNSUPPORTED_URL);
@@ -311,9 +280,9 @@ describe("outbound requests", () => {
         expect(alertSpy).toHaveBeenCalledExactlyOnceWith(`Unsupported video URL: ${UNSUPPORTED_URL}`);
     });
 
-    it("selects a playlist item and sends chat messages", () => {
+    it("selects a playlist item and sends chat messages", async () => {
         // Arrange
-        const { manager } = createManager();
+        const { manager } = await createManager();
 
         // Act
         manager.selectPlaylistVideo(2);
@@ -327,9 +296,9 @@ describe("outbound requests", () => {
 
 
 describe("chat:sync", () => {
-    it("hands the UI the whole log, in arrival order", async () => {
+    it("hands the UI the whole log, in arrival order, as live messages", async () => {
         // Arrange
-        const { updateChatUI } = createManager();
+        const { updateChatUI } = await createManager();
         const first = chatMessage({ text: "first" });
         const second = chatMessage({ text: "second" });
 
@@ -338,7 +307,7 @@ describe("chat:sync", () => {
         await socket.receive("chat:sync", second);
 
         // Assert
-        expect(updateChatUI.mock.calls).toEqual([[[first]], [[first, second]]]);
+        expect(updateChatUI.mock.calls).toEqual([[[first], false], [[first, second], false]]);
     });
 });
 
@@ -346,15 +315,20 @@ describe("chat:sync", () => {
 describe("destroy", () => {
     it("stops reacting to every sync event and destroys the player", async () => {
         // Arrange
-        const { manager, onVideoChange, updatePlaylistUI, updateChatUI } = createManager();
+        const { manager, onVideoChange, updatePlaylistUI, updateChatUI, updateUsersUI } = await createManager();
         await receiveVideo(videoState({ videoUrl: VIDEO_A, eventId: 1 }));
         onVideoChange.mockClear();
+        updateUsersUI.mockClear();
 
         // Act
         manager.destroy();
         await socket.receive("video:sync", videoState({ videoUrl: VIDEO_B, eventId: 2 }));
-        await socket.receive("playlist:sync", playlistState({ eventId: 1, items: [VIDEO_B] }));
+        await socket.receive("playlist:sync", playlistState({ eventId: 1, items: [playlistItem(VIDEO_B)] }));
         await socket.receive("chat:sync", chatMessage());
+        await socket.receive("room:sync", roomSnapshot());
+        await socket.receive("user:joined", OTHER_USER);
+        await socket.receive("user:updated", OTHER_USER);
+        await socket.receive("user:left", OTHER_USER.id);
 
         // Assert
         expect(latestPlayer().destroy).toHaveBeenCalledOnce();
@@ -362,12 +336,12 @@ describe("destroy", () => {
         expect(onVideoChange).not.toHaveBeenCalled();
         expect(updatePlaylistUI).not.toHaveBeenCalled();
         expect(updateChatUI).not.toHaveBeenCalled();
-        expect(socket.emitted("video:set")).toEqual([]);
+        expect(updateUsersUI).not.toHaveBeenCalled();
     });
 
-    it.fails("BUG B3: leaves the room so its events stop reaching this socket", () => {
+    it("leaves the room so its events stop reaching this socket", async () => {
         // Arrange
-        const { manager } = createManager();
+        const { manager } = await createManager();
 
         // Act
         manager.destroy();
@@ -381,7 +355,7 @@ describe("destroy", () => {
 describe("video metadata", () => {
     it("has no current video info before any video is loaded", async () => {
         // Arrange
-        const { manager } = createManager();
+        const { manager } = await createManager();
         const fetchMock = stubFetch();
 
         // Act
@@ -394,7 +368,7 @@ describe("video metadata", () => {
 
     it("fetches the current video's info from the video API", async () => {
         // Arrange
-        const { manager } = createManager();
+        const { manager } = await createManager();
         const fetchMock = stubFetch({ "/v1/video-api/youtube/video/aaaaaaaaaaa": { body: videoInfo("Video A") } });
         await receiveVideo(videoState({ videoUrl: VIDEO_A }));
 

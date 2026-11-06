@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import PlaylistManager from "../src/managers/PlaylistManager";
-import { playlistState, VIDEO_A, VIDEO_B, VIDEO_C } from "./helpers";
+import { playlistItem, playlistState, VIDEO_A, VIDEO_B, VIDEO_C } from "./helpers";
 
+
+const ITEM_A = playlistItem(VIDEO_A);
+const ITEM_B = playlistItem(VIDEO_B);
+const ITEM_C = playlistItem(VIDEO_C);
 
 function createManager() {
     const updatePlaylistUI = vi.fn();
@@ -14,30 +18,38 @@ describe("eventId guard", () => {
     it("drops a sync whose eventId equals the last one applied", () => {
         // Arrange
         const { manager, updatePlaylistUI } = createManager();
-        manager.sync(playlistState({ eventId: 3, items: [VIDEO_A, VIDEO_B], currentIndex: 1 }));
+        manager.sync(playlistState({ eventId: 3, items: [ITEM_A, ITEM_B], currentIndex: 1 }));
         updatePlaylistUI.mockClear();
 
         // Act
-        manager.sync(playlistState({ eventId: 3, items: [VIDEO_C], currentIndex: 0 }));
+        manager.sync(playlistState({ eventId: 3, items: [ITEM_C], currentIndex: 0 }));
 
         // Assert
         expect(updatePlaylistUI).not.toHaveBeenCalled();
-        expect(manager.currentItem).toBe(VIDEO_B);
     });
 
     it("drops a sync older than the last one applied", () => {
         // Arrange
         const { manager, updatePlaylistUI } = createManager();
-        manager.sync(playlistState({ eventId: 5, items: [VIDEO_A, VIDEO_B], currentIndex: 1 }));
+        manager.sync(playlistState({ eventId: 5, items: [ITEM_A, ITEM_B], currentIndex: 1 }));
         updatePlaylistUI.mockClear();
 
         // Act
-        manager.sync(playlistState({ eventId: 4, items: [VIDEO_A], currentIndex: 0 }));
+        manager.sync(playlistState({ eventId: 4, items: [ITEM_A], currentIndex: 0 }));
 
         // Assert
         expect(updatePlaylistUI).not.toHaveBeenCalled();
-        expect(manager.currentIndex).toBe(1);
-        expect(manager.length).toBe(2);
+    });
+
+    it("drops the empty playlist of a room nobody has queued in yet", () => {
+        // Arrange
+        const { manager, updatePlaylistUI } = createManager();
+
+        // Act: a fresh room's state, as a join snapshot carries it
+        manager.sync(playlistState({ eventId: 0, items: [], currentIndex: -1 }));
+
+        // Assert
+        expect(updatePlaylistUI).not.toHaveBeenCalled();
     });
 });
 
@@ -48,10 +60,10 @@ describe("sync", () => {
         const { manager, updatePlaylistUI } = createManager();
 
         // Act
-        manager.sync(playlistState({ eventId: 1, items: [VIDEO_A, VIDEO_B], currentIndex: 1 }));
+        manager.sync(playlistState({ eventId: 1, items: [ITEM_A, ITEM_B], currentIndex: 1 }));
 
         // Assert
-        expect(updatePlaylistUI).toHaveBeenCalledExactlyOnceWith([VIDEO_A, VIDEO_B], 1);
+        expect(updatePlaylistUI).toHaveBeenCalledExactlyOnceWith([ITEM_A, ITEM_B], 1);
     });
 
     it("keeps the last video selected in the UI once the playlist has ended", () => {
@@ -59,11 +71,10 @@ describe("sync", () => {
         const { manager, updatePlaylistUI } = createManager();
 
         // Act
-        manager.sync(playlistState({ eventId: 1, items: [VIDEO_A, VIDEO_B], currentIndex: -1 }));
+        manager.sync(playlistState({ eventId: 1, items: [ITEM_A, ITEM_B], currentIndex: -1 }));
 
-        // Assert: the UI shows the last item, while the manager itself reports the ended state
-        expect(updatePlaylistUI).toHaveBeenCalledExactlyOnceWith([VIDEO_A, VIDEO_B], 1);
-        expect(manager.currentIndex).toBe(-1);
+        // Assert
+        expect(updatePlaylistUI).toHaveBeenCalledExactlyOnceWith([ITEM_A, ITEM_B], 1);
     });
 
     it("shows no selection for an empty playlist", () => {
@@ -77,18 +88,17 @@ describe("sync", () => {
         expect(updatePlaylistUI).toHaveBeenCalledExactlyOnceWith([], -1);
     });
 
-    it("exposes the synced state and hands the UI a copy it can't mutate", () => {
+    it("hands the UI its own copy of the items, not the array the server sent", () => {
         // Arrange
         const { manager, updatePlaylistUI } = createManager();
-        manager.sync(playlistState({ eventId: 1, items: [VIDEO_A, VIDEO_B], currentIndex: 0 }));
-        const [uiItems] = updatePlaylistUI.mock.calls[0];
+        const state = playlistState({ eventId: 1, items: [ITEM_A, ITEM_B], currentIndex: 0 });
 
         // Act
-        uiItems.push(VIDEO_C);
+        manager.sync(state);
 
         // Assert
-        expect(manager.length).toBe(2);
-        expect(manager.currentIndex).toBe(0);
-        expect(manager.currentItem).toBe(VIDEO_A);
+        const [uiItems] = updatePlaylistUI.mock.calls[0]!;
+        expect(uiItems).toEqual(state.items);
+        expect(uiItems).not.toBe(state.items);
     });
 });

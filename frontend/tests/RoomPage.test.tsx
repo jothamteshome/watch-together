@@ -8,8 +8,11 @@ import { socket } from "./fakeSocket";
 import { installYoutube, latestPlayer } from "./fakeYoutube";
 import {
     chatMessage,
+    playlistItem,
     playlistState,
     ROOM_ID,
+    seedProfile,
+    SELF_USER,
     stubFetch,
     UNSUPPORTED_URL,
     VIDEO_A,
@@ -47,10 +50,14 @@ function renderRoomPage() {
 }
 
 
-/** Renders the room page and waits until the room has been found */
+/**
+ * Renders the room page and waits until it has joined: the room has been found and the stored
+ * profile resolved, so the page knows which messages are its own
+ */
 async function renderRoom() {
     renderRoomPage();
     await screen.findByPlaceholderText("Enter a url...");
+    await waitFor(() => expect(socket.emitted("room:join")).toEqual([{ roomId: ROOM_ID, user: SELF_USER }]));
 }
 
 
@@ -88,6 +95,7 @@ beforeEach(() => {
     // afterEach's clearAllTimers drops the intervals the app never clears (playback-rate monitor)
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"], shouldAdvanceTime: true });
     installYoutube();
+    seedProfile();
     socket.connected = true;
 });
 
@@ -99,8 +107,8 @@ describe("unread chat badge", () => {
         await renderRoom();
 
         // Act
-        await deliver("chat:sync", chatMessage({ authorId: "other-socket-id" }));
-        await deliver("chat:sync", chatMessage({ authorId: "other-socket-id" }));
+        await deliver("chat:sync", chatMessage());
+        await deliver("chat:sync", chatMessage());
 
         // Assert
         expect(chatButton().textContent).toBe("2");
@@ -112,7 +120,7 @@ describe("unread chat badge", () => {
         await renderRoom();
 
         // Act
-        await deliver("chat:sync", chatMessage({ authorId: socket.id }));
+        await deliver("chat:sync", chatMessage({ user: SELF_USER }));
 
         // Assert
         expect(chatButton().textContent).toBe("");
@@ -160,7 +168,7 @@ describe("playlist", () => {
         await renderRoom();
 
         // Act
-        await deliver("playlist:sync", playlistState({ eventId: 1, items: [VIDEO_A, VIDEO_B], currentIndex: 1 }));
+        await deliver("playlist:sync", playlistState({ eventId: 1, items: [playlistItem(VIDEO_A), playlistItem(VIDEO_B)], currentIndex: 1 }));
         await screen.findByTitle("Video A");
         await screen.findByTitle("Video B");
 
@@ -176,7 +184,7 @@ describe("playlist", () => {
         await renderRoom();
 
         // Act
-        await deliver("playlist:sync", playlistState({ eventId: 1, items: [VIDEO_A, VIDEO_B], currentIndex: -1 }));
+        await deliver("playlist:sync", playlistState({ eventId: 1, items: [playlistItem(VIDEO_A), playlistItem(VIDEO_B)], currentIndex: -1 }));
         await screen.findByTitle("Video B");
 
         // Assert
@@ -189,7 +197,7 @@ describe("playlist", () => {
         stubBackend();
         await renderRoom();
         const user = userEvent.setup();
-        await deliver("playlist:sync", playlistState({ eventId: 1, items: [VIDEO_A, VIDEO_B], currentIndex: 0 }));
+        await deliver("playlist:sync", playlistState({ eventId: 1, items: [playlistItem(VIDEO_A), playlistItem(VIDEO_B)], currentIndex: 0 }));
 
         await screen.findByTitle("Video B");
 
@@ -217,8 +225,8 @@ describe("search bar", () => {
 
         // Assert
         expect(socket.emitted("playlist:add")).toEqual([
-            { roomId: ROOM_ID, videoUrl: VIDEO_A },
-            { roomId: ROOM_ID, videoUrl: VIDEO_B }
+            { roomId: ROOM_ID, videoUrl: VIDEO_A, videoService: "youtube" },
+            { roomId: ROOM_ID, videoUrl: VIDEO_B, videoService: "youtube" }
         ]);
     });
 

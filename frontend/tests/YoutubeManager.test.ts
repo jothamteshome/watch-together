@@ -39,10 +39,11 @@ describe("loadVideo", () => {
         // Arrange
         const { manager, player } = createReadyManager();
 
-        // Act
-        manager.loadVideo(VIDEO_A, 30, 7);
+        // Act: the load's own autoplay, then the user pauses and resumes
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7 }));
         player.changeState(PlayerState.PLAYING);
         player.changeState(PlayerState.PAUSED);
+        player.changeState(PlayerState.PLAYING);
 
         // Assert
         expect(socket.emitted("video:play")).toEqual([expect.objectContaining({ eventId: 7 })]);
@@ -54,7 +55,7 @@ describe("loadVideo", () => {
         const { manager, player } = createReadyManager();
 
         // Act
-        manager.loadVideo(VIDEO_A, 30, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7 }));
 
         // Assert
         expect(player.loadVideoById).toHaveBeenCalledExactlyOnceWith(VIDEO_A_ID, 30);
@@ -67,8 +68,8 @@ describe("loadVideo", () => {
         const { manager, player } = createReadyManager();
 
         // Act
-        unready.loadVideo(VIDEO_A, 0, 1);
-        manager.loadVideo("https://www.youtube.com/watch?v=tooShort", 0, 1);
+        unready.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 1 }));
+        manager.loadVideo("https://www.youtube.com/watch?v=tooShort", videoState({ currentTime: 0, eventId: 1 }));
 
         // Assert
         expect(unready.isVideoLoaded()).toBe(false);
@@ -82,7 +83,7 @@ describe("autoplay block", () => {
     it("doesn't broadcast the pause caused by a blocked autoplay, but does broadcast a later real pause", () => {
         // Arrange
         const { manager, player } = createReadyManager();
-        manager.loadVideo(VIDEO_A, 30, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7 }));
 
         // Act: autoplay is blocked, then the user starts and pauses the video
         player.changeState(PlayerState.PAUSED);
@@ -96,25 +97,25 @@ describe("autoplay block", () => {
         expect(socket.emitted("video:pause")).toEqual([{ roomId: ROOM_ID, time: 31.5, eventId: 7, playbackRate: 1 }]);
     });
 
-    it("on the first play after a block, seeks to the server time plus wall-clock elapsed and broadcasts that time", () => {
+    it("on the first play after a block, seeks to the server time plus wall-clock elapsed without broadcasting", () => {
         // Arrange: loaded at 30s, blocked, and the user clicks play 12s later
         const { manager, player } = createReadyManager();
-        manager.loadVideo(VIDEO_A, 30, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7 }));
         player.changeState(PlayerState.PAUSED);
         vi.setSystemTime(T0 + 12_000);
 
         // Act
         player.changeState(PlayerState.PLAYING);
 
-        // Assert
+        // Assert: the server already has this state, so the catch-up stays local
         expect(player.seekTo).toHaveBeenCalledExactlyOnceWith(42, true);
-        expect(socket.emitted("video:play")).toEqual([{ roomId: ROOM_ID, time: 42, eventId: 7, playbackRate: 1 }]);
+        expect(socket.emitted("video:play")).toEqual([]);
     });
 
     it("uses the player's own time for every play after the first", () => {
         // Arrange
         const { manager, player } = createReadyManager();
-        manager.loadVideo(VIDEO_A, 30, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7 }));
         player.changeState(PlayerState.PLAYING);
         player.seekTo.mockClear();
         player.time = 50;
@@ -124,13 +125,13 @@ describe("autoplay block", () => {
 
         // Assert
         expect(player.seekTo).not.toHaveBeenCalled();
-        expect(socket.emitted("video:play").at(-1)).toMatchObject({ time: 50 });
+        expect(socket.emitted("video:play")).toEqual([{ roomId: ROOM_ID, time: 50, eventId: 7, playbackRate: 1 }]);
     });
 
     it("respects a seek the user made while blocked instead of jumping to the server time", () => {
         // Arrange: blocked at 30s, then the user seeks to 90s, which broadcasts a pause there
         const { manager, player } = createReadyManager();
-        manager.loadVideo(VIDEO_A, 30, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7 }));
         player.changeState(PlayerState.PAUSED);
         player.time = 90;
         player.changeState(PlayerState.PAUSED);
@@ -150,7 +151,7 @@ describe("pause", () => {
     it("stops playback without broadcasting a pause", () => {
         // Arrange
         const { manager, player } = createReadyManager();
-        manager.loadVideo(VIDEO_A, 0, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 7 }));
         player.changeState(PlayerState.PLAYING);
 
         // Act
@@ -168,7 +169,7 @@ describe("video end", () => {
     it("calls onVideoEnd once and marks the video unloaded", () => {
         // Arrange
         const { manager, player, onVideoEnd } = createReadyManager();
-        manager.loadVideo(VIDEO_A, 0, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 7 }));
         player.changeState(PlayerState.PLAYING);
 
         // Act
@@ -188,7 +189,7 @@ describe("sync", () => {
     ])("ignores a state with $case", ({ eventId }) => {
         // Arrange
         const { manager, player } = createReadyManager();
-        manager.loadVideo(VIDEO_A, 0, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 7 }));
         player.state = PlayerState.PLAYING;
 
         // Act
@@ -206,7 +207,7 @@ describe("sync", () => {
     ])("seeks on $drift of drift: $seeks", ({ serverTime, seeks }) => {
         // Arrange
         const { manager, player } = createReadyManager();
-        manager.loadVideo(VIDEO_A, 10, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 10, eventId: 7 }));
         player.state = PlayerState.PLAYING;
 
         // Act
@@ -223,7 +224,7 @@ describe("sync", () => {
     ])("calls $call when the player state differs from isPlaying $isPlaying", ({ playerState, isPlaying, call }) => {
         // Arrange
         const { manager, player } = createReadyManager();
-        manager.loadVideo(VIDEO_A, 0, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 7 }));
         player.state = playerState;
 
         // Act
@@ -239,7 +240,7 @@ describe("sync", () => {
     ])("leaves a player already in state $playerState alone, with no seek or rate change", ({ playerState, isPlaying }) => {
         // Arrange
         const { manager, player } = createReadyManager();
-        manager.loadVideo(VIDEO_A, 0, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 7 }));
         player.state = playerState;
 
         // Act
@@ -255,7 +256,7 @@ describe("sync", () => {
     it("applies a different server playback rate", () => {
         // Arrange
         const { manager, player } = createReadyManager();
-        manager.loadVideo(VIDEO_A, 0, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 7 }));
 
         // Act
         manager.sync(videoState({ eventId: 8, playbackRate: 1.5 }));
@@ -270,7 +271,7 @@ describe("playback rate monitor", () => {
     it("broadcasts a local rate change once, on the next 200ms poll", async () => {
         // Arrange
         const { manager, player } = createReadyManager();
-        manager.loadVideo(VIDEO_A, 0, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 7 }));
         player.time = 12;
 
         // Act
@@ -285,7 +286,7 @@ describe("playback rate monitor", () => {
     it("stays quiet while the rate is unchanged", async () => {
         // Arrange
         const { manager } = createReadyManager();
-        manager.loadVideo(VIDEO_A, 0, 7);
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 7 }));
 
         // Act
         await vi.advanceTimersByTimeAsync(1000);
