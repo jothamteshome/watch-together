@@ -6,20 +6,19 @@ import type User from "@shared/interfaces/User";
 import { serverManager } from "../models/RoomManager.js";
 import type RoomState from "../models/RoomState.js";
 import type { PlaylistChange } from "../models/RoomState.js";
+import { logger } from "../utils/logger.js";
 
 
 /** Broadcasts an accepted playlist change, and the video it started, if any */
 function broadcastPlaylistChange(io: Server, roomId: string, roomState: RoomState, change: PlaylistChange, action: string) {
     const playlistState = roomState.getPlaylistState();
-    console.log(`Broadcasting playlist:${action} in room ${roomId}`);
-    console.log(playlistState);
+    logger.debug({ roomId, items: playlistState.items.length, currentIndex: playlistState.currentIndex }, `Broadcasting playlist:${action}`);
     io.to(roomId).emit("playlist:sync", playlistState);
 
     if (change !== "started") return;
 
     const videoState = roomState.getVideoState();
-    console.log(`Setting video: ${videoState.videoUrl} in ${roomId}`);
-    console.log(videoState);
+    logger.debug({ roomId, itemId: videoState.itemId, videoService: videoState.videoService }, "Setting video");
     io.to(roomId).emit("video:sync", videoState);
 }
 

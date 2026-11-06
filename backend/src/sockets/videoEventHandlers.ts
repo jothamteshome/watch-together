@@ -2,6 +2,7 @@ import type { Server, Socket } from "socket.io";
 import type { VideoUpdateEvent } from "@shared/interfaces/VideoEvents";
 import { serverManager } from "../models/RoomManager.js";
 import type RoomState from "../models/RoomState.js";
+import { logger } from "../utils/logger.js";
 
 
 /**
@@ -16,7 +17,7 @@ function handlePlayVideo(io: Server, { roomId, time, playbackRate, eventId }: Vi
     const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
     if (!roomState?.updateVideo(eventId, time, playbackRate, true)) return;
 
-    console.log(`Broadcasting video:play in room ${roomId} at time ${time}`);
+    logger.debug({ roomId, time }, "Broadcasting video:play");
     io.to(roomId).emit("video:sync", roomState.getVideoState());
 }
 
@@ -33,7 +34,7 @@ function handlePauseVideo(io: Server, { roomId, time, playbackRate, eventId }: V
     const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
     if (!roomState?.updateVideo(eventId, time, playbackRate, false)) return;
 
-    console.log(`Broadcasting video:pause in room ${roomId} at time ${time}`);
+    logger.debug({ roomId, time }, "Broadcasting video:pause");
     io.to(roomId).emit("video:sync", roomState.getVideoState());
 }
 
@@ -50,7 +51,7 @@ function handleUpdateVideo(io: Server, { roomId, time, playbackRate, eventId }: 
     const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
     if (!roomState?.updateVideo(eventId, time, playbackRate)) return;
 
-    console.log(`Broadcasting video:update in room ${roomId} at time ${time}`);
+    logger.debug({ roomId, time }, "Broadcasting video:update");
     io.to(roomId).emit("video:sync", roomState.getVideoState());
 }
 

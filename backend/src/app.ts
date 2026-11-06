@@ -11,7 +11,7 @@ import registerConnectionEventHandlers from './sockets/connectionEventHandlers.j
 import { registerPlaylistEventHandlers } from './sockets/playlistEventHandlers.js';
 import { registerUserEventHandlers } from './sockets/userEventHandlers.js';
 import { registerVideoEventHandlers } from './sockets/videoEventHandlers.js';
-import getFormattedDate from "./utils/date.js";
+import { logger } from "./utils/logger.js";
 
 
 const { version: backendVersion } = JSON.parse(
@@ -38,8 +38,8 @@ export function createAppServer() {
   app.use("/v1/rooms", roomRoutes);
   app.use("/v1/users", userRoutes);
   app.use("/v1/video-api", videoApiRoutes)
+  // The frontend polls this every few seconds to measure latency, so it is deliberately not logged
   app.get('/health', (req, res) => {
-    console.log(`[${getFormattedDate()}] health check - OK`);
     res.status(200).send("OK");
   });
   app.get('/version', (_req, res) => {
@@ -50,8 +50,9 @@ export function createAppServer() {
   // Socket.IO events
   io.on("connection", (socket) => {
     // Every client event carries an object; drop anything else before a handler destructures it
-    socket.use(([, payload], next) => {
+    socket.use(([event, payload], next) => {
       if (typeof payload === "object" && payload !== null) next();
+      else logger.warn({ socketId: socket.id, event: String(event).slice(0, 64) }, "Dropped event with a non-object payload");
     });
 
     registerConnectionEventHandlers(io, socket);
