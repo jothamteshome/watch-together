@@ -1,8 +1,11 @@
 import type { AddressInfo } from "node:net";
+import { nanoid } from "nanoid";
 import type { Server } from "socket.io";
 import { io as connect, type Socket } from "socket.io-client";
 import type ChatMessage from "@shared/interfaces/ChatMessage";
+import type RoomSnapshot from "@shared/interfaces/RoomSnapshot";
 import type { PlaylistState, VideoState } from "@shared/interfaces/States";
+import type User from "@shared/interfaces/User";
 import { createAppServer } from "../src/app.js";
 
 
@@ -10,13 +13,6 @@ export interface TestServer {
     url: string;
     io: Server;
     close: () => Promise<void>;
-}
-
-
-export interface JoinResult {
-    video: VideoState;
-    playlist: PlaylistState;
-    chat: ChatMessage;
 }
 
 
@@ -68,6 +64,12 @@ export async function createRoom(url: string): Promise<string> {
 }
 
 
+/** A profile as the frontend persists it and sends with every room:join */
+export function testUser(username: string): User {
+    return { id: nanoid(), username, icon: `https://example.test/${username}.png` };
+}
+
+
 /** Resolves with the next payload of `event`, or rejects after `timeoutMs` */
 export function nextEvent<T = unknown>(socket: Socket, event: string, timeoutMs = 2000): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -94,20 +96,19 @@ export function collectBroadcast<T>([first, second]: [Socket, Socket], event: st
 
 
 /**
- * Joins `client` to `roomId` and resolves once the joiner has its three join events
- * and every observer has the join announcement, so no join traffic is left in flight.
+ * Joins `client` to `roomId` as `user` and resolves with its room:sync snapshot once every observer
+ * has the join announcement (chat:sync, then user:joined), so no join traffic is left in flight.
+ * A second tab of a user who is already in the room joins silently, so pass no observers for it.
  */
-export async function joinRoom(client: Socket, roomId: string, observers: Socket[] = []): Promise<JoinResult> {
+export async function joinRoom(client: Socket, roomId: string, user: User, observers: Socket[] = []): Promise<RoomSnapshot> {
     const synced = Promise.all([
-        nextEvent<VideoState>(client, "video:sync"),
-        nextEvent<PlaylistState>(client, "playlist:sync"),
-        nextEvent<ChatMessage>(client, "chat:sync"),
-        Promise.all(observers.map(observer => nextEvent(observer, "chat:sync")))
+        nextEvent<RoomSnapshot>(client, "room:sync"),
+        Promise.all(observers.map(observer => Promise.all([nextEvent(observer, "chat:sync"), nextEvent(observer, "user:joined")])))
     ]);
-    client.emit("room:join", { roomId });
+    client.emit("room:join", { roomId, user });
 
-    const [video, playlist, chat] = await synced;
-    return { video, playlist, chat };
+    const [snapshot] = await synced;
+    return snapshot;
 }
 
 
@@ -127,15 +128,44 @@ export async function setupRoom(url: string) {
     const roomId = await createRoom(url);
     const host = await connectClient(url);
     const guest = await connectClient(url);
+    const hostUser = testUser("Host");
+    const guestUser = testUser("Guest");
 
-    await joinRoom(host, roomId);
-    await joinRoom(guest, roomId, [host]);
+    await joinRoom(host, roomId, hostUser);
+    await joinRoom(guest, roomId, guestUser, [host]);
 
-    return { roomId, host, guest };
+    return { roomId, host, guest, hostUser, guestUser };
 }
 
 
-/** Extracts the username from a "<name> has joined the room." system message */
-export function joinedName(joinMessage: ChatMessage): string {
-    return joinMessage.text.replace(/ has joined the room\.$/, "");
+function emitAdd(sender: Socket, roomId: string, videoUrl: string) {
+    sender.emit("playlist:add", { roomId, videoUrl, videoService: "youtube" });
+}
+
+
+/**
+ * Queues `videoUrl` behind the item that's playing, as the frontend does, and resolves with each member's
+ * playlist:sync. Throws if the add started the video instead, which leaves a video:sync in flight: use startItem.
+ */
+export async function addItem(room: Room, videoUrl: string, sender: Socket = room.host): Promise<[PlaylistState, PlaylistState]> {
+    const synced = await collectBroadcast<PlaylistState>([room.host, room.guest], "playlist:sync", () =>
+        emitAdd(sender, room.roomId, videoUrl));
+
+    const [{ items, currentIndex }] = synced;
+    if (currentIndex === items.length - 1) throw new Error("addItem started the video it queued; use startItem");
+    return synced;
+}
+
+
+/**
+ * Queues `videoUrl` while nothing is playing, so the server starts it, and resolves with each member's
+ * playlist:sync and the video:sync that follows it.
+ */
+export async function startItem(room: Room, videoUrl: string, sender: Socket = room.host) {
+    const members: [Socket, Socket] = [room.host, room.guest];
+    const video = Promise.all(members.map(member => nextEvent<VideoState>(member, "video:sync")));
+    const playlist = await collectBroadcast<PlaylistState>(members, "playlist:sync", () =>
+        emitAdd(sender, room.roomId, videoUrl));
+
+    return { playlist, video: await video as [VideoState, VideoState] };
 }
