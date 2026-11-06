@@ -9,6 +9,11 @@ export default class ChatLog {
     }
 
 
+    public replace(messages: ChatMessage[]) {
+        this.items = [ ...messages ];
+    }
+
+
     get length(): number {
         return this.items.length;
     }

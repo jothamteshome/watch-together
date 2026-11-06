@@ -2,8 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import JoinRoom from "../src/components/home/JoinRoom";
-import { ROOM_ID, stubFetch, type Route as FetchRoute } from "./helpers";
+import JoinRoom from "../../src/components/home/JoinRoom";
+import { ROOM_ID, stubFetch, type Route as FetchRoute } from "../support/helpers";
 
 
 function RoomStub() {

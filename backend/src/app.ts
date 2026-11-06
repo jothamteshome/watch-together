@@ -4,10 +4,12 @@ import { readFileSync } from 'fs';
 import { createServer } from "http";
 import { Server } from "socket.io";
 import roomRoutes from "./routes/roomRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 import videoApiRoutes from "./routes/videoApiRoutes.js"
 import { registerChatEventHandlers } from './sockets/chatEventHandlers.js';
 import registerConnectionEventHandlers from './sockets/connectionEventHandlers.js';
 import { registerPlaylistEventHandlers } from './sockets/playlistEventHandlers.js';
+import { registerUserEventHandlers } from './sockets/userEventHandlers.js';
 import { registerVideoEventHandlers } from './sockets/videoEventHandlers.js';
 import getFormattedDate from "./utils/date.js";
 
@@ -34,6 +36,7 @@ export function createAppServer() {
 
   // Routes
   app.use("/v1/rooms", roomRoutes);
+  app.use("/v1/users", userRoutes);
   app.use("/v1/video-api", videoApiRoutes)
   app.get('/health', (req, res) => {
     console.log(`[${getFormattedDate()}] health check - OK`);
@@ -46,10 +49,16 @@ export function createAppServer() {
 
   // Socket.IO events
   io.on("connection", (socket) => {
+    // Every client event carries an object; drop anything else before a handler destructures it
+    socket.use(([, payload], next) => {
+      if (typeof payload === "object" && payload !== null) next();
+    });
+
     registerConnectionEventHandlers(io, socket);
     registerVideoEventHandlers(io, socket);
     registerPlaylistEventHandlers(io, socket);
     registerChatEventHandlers(io, socket);
+    registerUserEventHandlers(io, socket);
   });
 
   return { httpServer, io };

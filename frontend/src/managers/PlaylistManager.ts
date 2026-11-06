@@ -1,4 +1,5 @@
 import Playlist from "../models/VideoPlaylist";
+import type PlaylistItem from "@shared/interfaces/PlaylistItem";
 import type { PlaylistState } from "@shared/interfaces/States";
 
 
@@ -8,13 +9,13 @@ import type { PlaylistState } from "@shared/interfaces/States";
 export default class PlaylistManager {
     private playlistEventId = 0;
     private playlist = new Playlist();
-    private updatePlaylistUI: (videos: string[], index: number) => void;
+    private updatePlaylistUI: (items: PlaylistItem[], index: number) => void;
 
 
     /**
      * Creates a new PlaylistManager instance.
      */
-    constructor(updatePlaylistUI: (videos: string[], index: number) => void) {
+    constructor(updatePlaylistUI: (items: PlaylistItem[], index: number) => void) {
         this.updatePlaylistUI = updatePlaylistUI;
     }
 
@@ -39,19 +40,6 @@ export default class PlaylistManager {
 
         // Update the UI
         this.updatePlaylistUI(this.playlist.getPlaylist(), displayIndex);
-    }
-
-
-    get currentIndex(): number {
-        return this.playlist.getCurrentIndex();
-    }
-
-    get currentItem(): string {
-        return this.playlist.current;
-    }
-
-    get length(): number {
-        return this.playlist.length;
     }
 
 

@@ -27,9 +27,11 @@ export default function MessageDisplay({ messages }: MessageDisplayProps) {
                 messages.map((message: ChatMessage, i: number) => {
                     const previous = messages[i - 1];
                     const showHeader = !previous
-                        || previous.isSystemMessage
-                        || message.isSystemMessage
-                        || previous.author !== message.author
+                        || !!previous.systemEvent
+                        || !!message.systemEvent
+                        || previous.user.id !== message.user.id
+                        || previous.user.username !== message.user.username
+                        || previous.user.icon !== message.user.icon
                         || message.timestamp - previous.timestamp > GROUP_TIME_THRESHOLD_MS;
 
                     return (

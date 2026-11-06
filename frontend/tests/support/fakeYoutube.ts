@@ -15,6 +15,7 @@ export class FakePlayer {
     rate = 1;
     state: number = PlayerState.UNSTARTED;
     readonly loadVideoById = vi.fn((_videoId: string, startSeconds?: number) => { this.time = startSeconds ?? 0; });
+    readonly cueVideoById = vi.fn((_videoId: string, startSeconds?: number) => { this.time = startSeconds ?? 0; });
     readonly seekTo = vi.fn((seconds: number) => { this.time = seconds; });
     readonly setPlaybackRate = vi.fn((rate: number) => { this.rate = rate; });
     readonly playVideo = vi.fn();

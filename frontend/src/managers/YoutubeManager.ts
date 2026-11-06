@@ -37,19 +37,27 @@ export default class YoutubeManager extends BaseVideoManager {
 
     /**
      * Loads a new video into the player at the given start time.
-     * Separate from syncHandler — this is called when the video URL changes,
+     * Separate from syncHandler — this is called when the playlist item changes,
      * while syncHandler only corrects drift/state on an already-loaded video.
      */
-    public loadVideo(url: string, startTime: number, eventId: number): void {
+    public loadVideo(url: string, { currentTime, isPlaying, eventId }: VideoState): void {
         if (!this.player) return;
         const videoIdentifier = this.extractId(url);
         if (!videoIdentifier) return;
-        this.player.loadVideoById(videoIdentifier, startTime);
         this.videoLoaded = true;
         this.eventId = eventId;
-        this.suppressNextPause = true;
-        this.loadedServerTime = startTime;
-        this.loadedLocalTime = Date.now();
+
+        if (isPlaying) {
+            this.player.loadVideoById(videoIdentifier, currentTime);
+            this.suppressNextPause = true;
+            this.loadedServerTime = currentTime;
+            this.loadedLocalTime = Date.now();
+        } else {
+            // Cue instead of autoplaying, so joining a paused room doesn't resume it
+            this.player.cueVideoById(videoIdentifier, currentTime);
+            this.loadedServerTime = null;
+            this.loadedLocalTime = null;
+        }
     }
 
     /** Extracts the YouTube video ID from a URL string. Returns null if invalid. */
@@ -123,6 +131,13 @@ export default class YoutubeManager extends BaseVideoManager {
         if (this.eventId >= eventId) return;
         this.eventId = eventId;
 
+        // A load still waiting for its first PLAYING (e.g. autoplay-blocked) must catch up
+        // to this newer state instead of the one it was loaded with
+        if (this.loadedServerTime !== null) {
+            this.loadedServerTime = isPlaying ? currentTime : null;
+            this.loadedLocalTime = isPlaying ? Date.now() : null;
+        }
+
         if (this.player.getPlaybackRate() !== playbackRate) {
             this.player.setPlaybackRate(playbackRate);
         }
@@ -171,17 +186,14 @@ export default class YoutubeManager extends BaseVideoManager {
         if (event.data === YT.PlayerState.PLAYING) {
             this.suppressNextPause = false;
 
-            let time = player.getCurrentTime();
-
-            // If recovering from an autoplay block, the local player is still at the
-            // stale seek position. Compute the expected server time by adding elapsed
-            // wall-clock time since the video was loaded, then seek before emitting.
+            // First PLAYING after our own load (autoplay, or a click after an autoplay block):
+            // catch up to the server's time locally. The server already has this state.
             if (this.loadedServerTime !== null && this.loadedLocalTime !== null) {
                 const elapsed = (Date.now() - this.loadedLocalTime) / 1000;
-                time = this.loadedServerTime + elapsed;
-                this.player!.seekTo(time, true);
+                this.player!.seekTo(this.loadedServerTime + elapsed, true);
                 this.loadedServerTime = null;
                 this.loadedLocalTime = null;
+                return;
             }
 
             socket.emit("video:play", { roomId: this.roomId, time, eventId: this.eventId, playbackRate });

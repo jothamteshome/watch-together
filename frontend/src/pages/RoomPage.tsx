@@ -6,10 +6,12 @@ import VideoPlayer from "../components/room/VideoPlayer";
 import VideoMetadataPanel from "../components/video/VideoMetadataPanel";
 import Playlist from "../components/playlist/Playlist";
 import type ChatMessage from "@shared/interfaces/ChatMessage";
+import type PlaylistItem from "@shared/interfaces/PlaylistItem";
+import type User from "@shared/interfaces/User";
+import type { UserUpdateEvent } from "@shared/interfaces/UserEvents";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
 import RoomManager from "../managers/RoomManager";
 import { checkRoomExists } from "../services/room";
-import { socket } from "../services/socket";
 
 
 export default function RoomPage() {
@@ -19,10 +21,12 @@ export default function RoomPage() {
   const [roomStatus, setRoomStatus] = useState<"loading" | "found" | "not-found">("loading");
   const [url, setUrl] = useState("");
   const [videoInfo, setVideoInfo] = useState<VideoInfo | undefined>();
-  const [playlistVideos, setPlaylistVideos] = useState<string[]>([]);
+  const [playlistVideos, setPlaylistVideos] = useState<PlaylistItem[]>([]);
   const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(-1);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatNotifications, setChatNotifications] = useState<number>(0);
+  const [selfUser, setSelfUser] = useState<User | undefined>();
+  const [roomUsers, setRoomUsers] = useState<User[]>([]);
 
   const chatMessageLengthRef = useRef(0);
   // Tracked via ref, not state — read inside updateChatUI, which is captured once by the
@@ -63,7 +67,7 @@ export default function RoomPage() {
     };
 
 
-    const updatePlaylistUI = (videos: string[], index: number) => {
+    const updatePlaylistUI = (videos: PlaylistItem[], index: number) => {
       if (!roomId || !roomManagerRef.current) return;
 
       setPlaylistVideos(videos);
@@ -71,24 +75,22 @@ export default function RoomPage() {
     };
 
 
-    const updateChatUI = (messages: ChatMessage[]) => {
+    const updateChatUI = (messages: ChatMessage[], isHistory: boolean) => {
       if (!roomId || !roomManagerRef.current) return;
 
-      // Don't notify for messages this client sent itself — the server broadcasts
-      // chat:sync to the sender too, so self-authored messages would otherwise
-      // always bump the unread badge. Also don't notify at all while the chat is
-      // already open, since the user is actively seeing messages arrive in real time.
+      // Don't notify for messages this client sent itself, while chat is
+      // open, or for chat history sync.
       const newMessages = messages.slice(chatMessageLengthRef.current);
-      const newNotifications = isChatOpenRef.current
+      const newNotifications = isChatOpenRef.current || isHistory
         ? 0
-        : newMessages.filter((m) => m.authorId !== socket.id).length;
+        : newMessages.filter((m) => !m.systemEvent && m.user.id !== roomManagerRef.current?.selfUserId).length;
 
       setChatMessages(messages);
       chatMessageLengthRef.current = messages.length;
       setChatNotifications(prev => prev + newNotifications);
     };
 
-    roomManagerRef.current = new RoomManager(roomId, onVideoChanged, updatePlaylistUI, updateChatUI);
+    roomManagerRef.current = new RoomManager(roomId, onVideoChanged, updatePlaylistUI, updateChatUI, setSelfUser, setRoomUsers);
 
     return () => roomManagerRef.current?.destroy();
   }, [roomId, roomStatus]);
@@ -111,6 +113,12 @@ export default function RoomPage() {
   const sendChatMessage = (msg: string) => {
     if (!roomId || !roomManagerRef.current) return;
     roomManagerRef.current.sendChatMessage(msg);
+  };
+
+
+  const updateProfile = (changes: UserUpdateEvent) => {
+    if (!roomId || !roomManagerRef.current) return;
+    roomManagerRef.current.updateProfile(changes);
   };
 
 
@@ -142,6 +150,9 @@ export default function RoomPage() {
         clearChatNotifications={() => setChatNotifications(0)}
         sendChatMessage={sendChatMessage}
         onChatOpenChange={(isOpen: boolean) => { isChatOpenRef.current = isOpen; }}
+        user={selfUser}
+        users={roomUsers}
+        updateProfile={updateProfile}
       />
 
       {/* Content area — below lg: player, queue, metadata stacked in that order.

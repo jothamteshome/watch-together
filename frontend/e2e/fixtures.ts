@@ -15,7 +15,7 @@ export const VIDEO_WITHOUT_METADATA = "https://www.youtube.com/watch?v=fail00000
 /** 14 videos whose fixture titles are long enough to wrap */
 export const LONG_VIDEOS = Array.from({ length: 14 }, (_, i) => `https://www.youtube.com/watch?v=long${String(i).padStart(7, "0")}`);
 
-export const PlayerState = { ENDED: 0, PLAYING: 1, PAUSED: 2 } as const;
+export const PlayerState = { ENDED: 0, PLAYING: 1, PAUSED: 2, CUED: 5 } as const;
 
 const TITLES: Record<string, string> = { aaaaaaaaaaa: "Video A", bbbbbbbbbbb: "Video B", ccccccccccc: "Video C" };
 const FAKE_IFRAME_API = readFileSync(new URL("./fake-iframe-api.js", import.meta.url), "utf-8");
@@ -137,15 +137,16 @@ export const test = base.extend<Fixtures>({
             clients.push(client);
             await nextEvent(client, "connect");
 
-            const joined = nextEvent(client, "chat:sync");
-            client.emit("room:join", { roomId });
+            const user = { id: crypto.randomUUID(), username: "Seeder", icon: "https://api.dicebear.com/7.x/identicon/svg?seed=Seeder" };
+            const joined = nextEvent(client, "room:sync");
+            client.emit("room:join", { roomId, user });
             await joined;
 
             return {
                 async add(urls) {
                     for (const videoUrl of urls) {
                         const synced = nextEvent(client, "playlist:sync");
-                        client.emit("playlist:add", { roomId, videoUrl });
+                        client.emit("playlist:add", { roomId, videoUrl, videoService: "youtube" });
                         await synced;
                     }
                 },
@@ -177,8 +178,8 @@ export async function readChat(page: Page) {
 
 
 /**
- * Waits until this page has joined its room. The server sends video:sync, playlist:sync and then
- * the "has joined" chat message, so once that message shows, the join state has been applied.
+ * Waits until this page has joined its room. Its own "has joined" message arrives in the same
+ * room:sync snapshot as the room's users, video and playlist, so once it shows, the join has been applied.
  */
 export async function waitUntilJoined(page: Page) {
     await chatButton(page).click();

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Play } from "lucide-react";
+import UserIcon from "../user/UserIcon";
+import type PlaylistItem from "@shared/interfaces/PlaylistItem";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
 
 
 interface PlaylistVideoProps {
-    videoUrl: string;
+    item: PlaylistItem;
     watching: boolean;
     index: number;
     ref: React.RefObject<HTMLDivElement | null> | null;
@@ -30,7 +32,7 @@ function PlaylistVideoThumbnail({ thumbnail }: { thumbnail?: string }) {
 
 function PlaylistVideoInfo({ title, channelName, fallback }: { title?: string; channelName?: string; fallback: string }) {
     return (
-        <div className="flex flex-col ml-2">
+        <div className="flex flex-col flex-1 min-w-0 ml-2">
             <h1 className="text-sm line-clamp-1 mt-1" title={title ?? fallback}>{title ?? fallback}</h1>
             {channelName && <h2 className="text-xs text-neutral-400">{channelName}</h2>}
         </div>
@@ -38,20 +40,20 @@ function PlaylistVideoInfo({ title, channelName, fallback }: { title?: string; c
 };
 
 
-export default function PlaylistVideo({ videoUrl, watching, index, onVideoSelect, ref, fetchVideoInfo }: PlaylistVideoProps) {
+export default function PlaylistVideo({ item, watching, index, onVideoSelect, ref, fetchVideoInfo }: PlaylistVideoProps) {
     const backgroundClass = watching ? "bg-neutral-700" : "bg-neutral-900 hover:bg-neutral-700/70";
     const [videoData, setVideoData] = useState<PlaylistVideoData>({});
 
     useEffect(() => {
         const getVideoData = async () => {
-            const info = await fetchVideoInfo(videoUrl);
+            const info = await fetchVideoInfo(item.videoUrl);
             if (!info) return;
 
             setVideoData({ title: info.title, channelName: info.channel?.name, thumbnail: info.thumbnail });
         }
 
         getVideoData();
-    }, [videoUrl, fetchVideoInfo]);
+    }, [item.videoUrl, fetchVideoInfo]);
 
     return (
         <div ref={ref} className={`flex w-full h-20 py-2 cursor-pointer ${backgroundClass}`} onClick={onVideoSelect}>
@@ -63,7 +65,10 @@ export default function PlaylistVideo({ videoUrl, watching, index, onVideoSelect
                 <p className="min-w-6 flex items-center justify-center text-xs">{index + 1}</p>
             }
             <PlaylistVideoThumbnail thumbnail={videoData.thumbnail} />
-            <PlaylistVideoInfo title={videoData.title} channelName={videoData.channelName} fallback={videoUrl} />
+            <PlaylistVideoInfo title={videoData.title} channelName={videoData.channelName} fallback={item.videoUrl} />
+            <div className="ml-auto mr-2 w-5 shrink-0 self-center" title={`Added by ${item.addedBy.username}`}>
+                <UserIcon src={item.addedBy.icon} />
+            </div>
         </div>
     );
 };

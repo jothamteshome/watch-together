@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
 import PlaylistVideo from "./PlaylistVideo";
+import type PlaylistItem from "@shared/interfaces/PlaylistItem";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
 
 interface PlayistVideoListProps {
-    videos: string[];
+    videos: PlaylistItem[];
     currentIndex: number;
     onVideoSelect: (index: number) => void;
     fetchVideoInfo: (videoUrl: string) => Promise<VideoInfo | null>;
@@ -20,9 +21,9 @@ export default function PlaylistVideoList({ videos, currentIndex, onVideoSelect,
     return (
         <div className="w-full h-full flex flex-col overflow-y-auto overscroll-none rounded-b-lg">
             {
-                videos.map((videoUrl: string, i: number) =>
+                videos.map((item: PlaylistItem, i: number) =>
                 (
-                    <PlaylistVideo ref={i === currentIndex ? currentVideoRef : null} key={`${videoUrl}-${i}`} watching={i === currentIndex} videoUrl={videoUrl} index={i} onVideoSelect={() => onVideoSelect(i)} fetchVideoInfo={fetchVideoInfo} />
+                    <PlaylistVideo ref={i === currentIndex ? currentVideoRef : null} key={item.id} watching={i === currentIndex} item={item} index={i} onVideoSelect={() => onVideoSelect(i)} fetchVideoInfo={fetchVideoInfo} />
                 ))
             }
         </div>
