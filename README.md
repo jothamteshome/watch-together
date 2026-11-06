@@ -9,6 +9,7 @@ A real-time collaborative platform to watch YouTube videos with friends. Create 
 - [Configuration](#configuration)
 - [Usage](#usage)
 - [Sync Behavior](#sync-behavior)
+- [Testing](#testing)
 - [Deployment](#deployment)
 
 ---
@@ -16,13 +17,14 @@ A real-time collaborative platform to watch YouTube videos with friends. Create 
 ## Features
 
 - **Room-based Sessions** — Create or join rooms with shareable links; rooms are ephemeral (no database)
-- **Synchronized Playback** — Real-time YouTube video sync with latency correction and drift prevention
-- **Playlist Management** — Queue multiple videos, manually select tracks, and auto-advance when a video ends
-- **Live Chat** — Room chat with system notifications for join, leave, and disconnect events
+- **Synchronized Playback** — Real-time YouTube video sync with drift correction; late joiners land at the room's current time
+- **Playlist Management** — Queue multiple videos (the same video can be queued more than once), select any entry, and auto-advance when a video ends; each entry shows who added it
+- **Live Chat** — Room chat with join, leave, and disconnect notices; late joiners see the last 200 messages
 - **YouTube Metadata** — Displays video title, view count, like count, published date, and full channel info (name, icon, subscriber count)
-- **User Avatars** — Auto-generated identicon avatars and usernames assigned on join; no sign-up needed
-- **Unread Badges** — Notification badges on the chat and playlist tabs when the panel is minimized
-- **Event Versioning** — All state-change events carry an `eventId` to prevent race conditions and out-of-order updates
+- **User Profiles** — A random name and identicon avatar are generated once per browser and kept between visits; rename yourself from the profile menu, no sign-up needed
+- **Online Users** — See who is in the room; two tabs of the same user count once
+- **Unread Badges** — A badge on the chat button counts messages from others while the chat is closed
+- **Event Versioning** — Video and playlist state carry an `eventId` version, so stale or conflicting updates are dropped
 - **Room Cleanup** — Inactive empty rooms are automatically purged after one hour
 
 ---
@@ -106,12 +108,37 @@ YOUTUBE_API_KEY=your_youtube_data_api_v3_key
 
 ## Sync Behavior
 
-- The server maintains `VideoState` (current time, play/pause, playback rate) and updates a timestamp on every state change
-- When a user joins, the server calculates elapsed time since the last update and sends an adjusted `currentTime` so the new user snaps in sync immediately
-- All video events (`play`, `pause`, `seek`, `set`) are broadcast to every room member via `video:sync`
-- Each event carries an `eventId`; clients discard stale or out-of-order updates
-- Latency is tracked per-connection and factored into sync corrections to prevent drift
-- Playlist and chat state are similarly versioned and replayed to newly joined users
+The server owns each room's state: the video (`VideoState`), the playlist (items with server-assigned ids and who added them), the last 200 chat messages, and who is online. Clients send what their user does and apply what the server sends back.
+
+- **Joining** — The client sends its stored profile with `room:join` and gets one `room:sync` snapshot of the users, chat, playlist, and video. The video's time is projected forward to the moment of the join. A paused room's video is cued instead of played.
+- **The server starts videos** — Adding to an empty or finished playlist, selecting an entry, or reaching the end of a video makes the server load that item and broadcast `video:sync`. Clients never start videos themselves, so a join or a repeated URL can't restart anyone's playback.
+- **`eventId` is a version** — Clients drop broadcasts older than the state they already have. When two members act on the same state at once (one plays, one pauses), the server applies the first and drops the other.
+- **Video ends are keyed by item** — Every member's player reports the end with the id of the item that ended. The server acts on the first report and ignores the rest, so the playlist advances exactly once.
+- **A finished playlist stays on its last video** — Clicking that entry does nothing. Restart it with the scrubber, or add a video, which starts right away.
+
+Who sends each kind of event:
+
+| Kind of event | Sent by | Examples |
+|---|---|---|
+| User intent | The client of the user who acted | play, pause, seek, playback rate, select, add |
+| Consequences the server can work out | Nobody: the server applies them | which video plays after a select, an add, or an end |
+| Facts only players can observe | Every client, keyed by what happened | a video ended (`itemId`) |
+| Applying server state | Nobody | loading a video from `video:sync` or the join snapshot sends nothing back |
+
+---
+
+## Testing
+
+| Suite | Runs against | Command | Location |
+|---|---|---|---|
+| Backend | The real Express and Socket.IO server, with real socket clients | `npm test` in `backend/` | `backend/tests/` |
+| Frontend | Managers and components in jsdom, with a fake socket and YouTube player | `npm test` in `frontend/` | `frontend/tests/` |
+| End-to-end | The real backend and a production build in Chromium, with a fake YouTube player | `npm run test:e2e` in `frontend/` | `frontend/e2e/` |
+
+- Run `npx playwright install chromium` once before the first end-to-end run.
+- `npm run test:coverage` and `npm run test:mutation` (Stryker) work in both packages. Each fails below the thresholds set in `vitest.config.ts` and `stryker.config.json`.
+- A known bug is recorded as a test that asserts the intended behaviour, marked `it.fails` (`test.fail()` in end-to-end tests), with a `Known bug:` comment or a `BUG` title saying what's wrong. When a fix makes it pass, remove the marker.
+- CI runs both unit suites and the frontend build on every pull request. Run lint, end-to-end, and mutation tests locally.
 
 ---
 
