@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { VideoState } from "@shared/interfaces/States";
 import type { VideoService } from "@shared/interfaces/VideoService";
-import RoomManager from "../src/managers/RoomManager";
-import { socket } from "./fakeSocket";
-import { FakePlayer, installYoutube, latestPlayer, PlayerState } from "./fakeYoutube";
+import RoomManager from "../../src/managers/RoomManager";
+import { socket } from "../support/fakeSocket";
+import { FakePlayer, installYoutube, latestPlayer, PlayerState } from "../support/fakeYoutube";
 import {
     BACKEND_URL,
     chatMessage,
@@ -20,9 +20,9 @@ import {
     VIDEO_B,
     videoInfo,
     videoState
-} from "./helpers";
+} from "../support/helpers";
 
-vi.mock("../src/services/socket", () => import("./fakeSocket"));
+vi.mock("../../src/services/socket", () => import("../support/fakeSocket"));
 
 
 /** Creates a manager for ROOM_ID; it joins once SELF_USER's stored profile has resolved, asynchronously */

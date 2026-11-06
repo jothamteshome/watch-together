@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type ChatMessage from "@shared/interfaces/ChatMessage";
 import type User from "@shared/interfaces/User";
-import MessageDisplay from "../src/components/chat/MessageDisplay";
-import { chatMessage } from "./helpers";
+import MessageDisplay from "../../src/components/chat/MessageDisplay";
+import { chatMessage } from "../support/helpers";
 
 
 const T0 = Date.UTC(2026, 0, 1);

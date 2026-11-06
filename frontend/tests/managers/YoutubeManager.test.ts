@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import YoutubeManager from "../src/managers/YoutubeManager";
-import { socket } from "./fakeSocket";
-import { FakePlayer, installYoutube, latestPlayer, PlayerState } from "./fakeYoutube";
-import { ROOM_ID, VIDEO_A, videoState } from "./helpers";
+import YoutubeManager from "../../src/managers/YoutubeManager";
+import { socket } from "../support/fakeSocket";
+import { FakePlayer, installYoutube, latestPlayer, PlayerState } from "../support/fakeYoutube";
+import { ROOM_ID, VIDEO_A, videoState } from "../support/helpers";
 
-vi.mock("../src/services/socket", () => import("./fakeSocket"));
+vi.mock("../../src/services/socket", () => import("../support/fakeSocket"));
 
 
 const VIDEO_A_ID = "aaaaaaaaaaa";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { checkRoomExists, createRoom } from "../src/services/room";
-import { BACKEND_URL, ROOM_ID, stubFetch } from "./helpers";
+import { checkRoomExists, createRoom } from "../../src/services/room";
+import { BACKEND_URL, ROOM_ID, stubFetch } from "../support/helpers";
 
 
 describe("createRoom", () => {

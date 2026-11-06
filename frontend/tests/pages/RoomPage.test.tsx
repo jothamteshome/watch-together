@@ -3,9 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { VideoState } from "@shared/interfaces/States";
-import RoomPage from "../src/pages/RoomPage";
-import { socket } from "./fakeSocket";
-import { installYoutube, latestPlayer } from "./fakeYoutube";
+import RoomPage from "../../src/pages/RoomPage";
+import { socket } from "../support/fakeSocket";
+import { installYoutube, latestPlayer } from "../support/fakeYoutube";
 import {
     chatMessage,
     playlistItem,
@@ -20,9 +20,9 @@ import {
     videoInfo,
     videoState,
     type Route as FetchRoute
-} from "./helpers";
+} from "../support/helpers";
 
-vi.mock("../src/services/socket", () => import("./fakeSocket"));
+vi.mock("../../src/services/socket", () => import("../support/fakeSocket"));
 
 
 const VIDEO_API = "/v1/video-api/youtube/video";

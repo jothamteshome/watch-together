@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import PlaylistManager from "../src/managers/PlaylistManager";
-import { playlistItem, playlistState, VIDEO_A, VIDEO_B, VIDEO_C } from "./helpers";
+import PlaylistManager from "../../src/managers/PlaylistManager";
+import { playlistItem, playlistState, VIDEO_A, VIDEO_B, VIDEO_C } from "../support/helpers";
 
 
 const ITEM_A = playlistItem(VIDEO_A);

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { formatCount, formatExactCount, formatExactDate, formatRelativeDate } from "../src/utils/formatVideoInfo";
+import { formatCount, formatExactCount, formatExactDate, formatRelativeDate } from "../../src/utils/formatVideoInfo";
 
 
 const SECOND = 1000;
