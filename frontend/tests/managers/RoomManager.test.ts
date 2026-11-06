@@ -488,7 +488,10 @@ describe("destroy", () => {
         // Arrange
         const { manager, onVideoChange, updatePlaylistUI, updateChatUI, updateUsersUI } = await createManager();
         await receiveVideo(videoState({ videoUrl: VIDEO_A, eventId: 1 }));
+        await socket.receive("room:sync", roomSnapshot());
         onVideoChange.mockClear();
+        updatePlaylistUI.mockClear();
+        updateChatUI.mockClear();
         updateUsersUI.mockClear();
 
         // Act

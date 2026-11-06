@@ -59,11 +59,11 @@ describe("sync", () => {
         // Arrange
         const { manager, updatePlaylistUI } = createManager();
 
-        // Act
-        manager.sync(playlistState({ eventId: 1, items: [ITEM_A, ITEM_B], currentIndex: 1 }));
+        // Act: the current item isn't the last, which the ended state would show
+        manager.sync(playlistState({ eventId: 1, items: [ITEM_A, ITEM_B, ITEM_C], currentIndex: 1 }));
 
         // Assert
-        expect(updatePlaylistUI).toHaveBeenCalledExactlyOnceWith([ITEM_A, ITEM_B], 1);
+        expect(updatePlaylistUI).toHaveBeenCalledExactlyOnceWith([ITEM_A, ITEM_B, ITEM_C], 1);
     });
 
     it("keeps the last video selected in the UI once the playlist has ended", () => {
