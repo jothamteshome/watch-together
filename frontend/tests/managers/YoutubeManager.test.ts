@@ -62,6 +62,22 @@ describe("loadVideo", () => {
         expect(manager.isVideoLoaded()).toBe(true);
     });
 
+    it("cues a paused state at the server's time instead of playing it, and treats the next play as the user's", () => {
+        // Arrange: a playing load is still waiting for its first PLAYING when the room's paused state arrives
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 10, eventId: 6 }));
+
+        // Act
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7, isPlaying: false }));
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert: the cue adopts eventId 7 and drops the earlier load's catch-up
+        expect(player.cueVideoById).toHaveBeenCalledExactlyOnceWith(VIDEO_A_ID, 30);
+        expect(player.seekTo).not.toHaveBeenCalled();
+        expect(socket.emitted("video:play")).toEqual([{ roomId: ROOM_ID, time: 30, eventId: 7, playbackRate: 1 }]);
+        expect(manager.isVideoLoaded()).toBe(true);
+    });
+
     it("does nothing before the player exists or for a URL without a valid video id", () => {
         // Arrange
         const unready = new YoutubeManager(ROOM_ID, vi.fn());
@@ -75,6 +91,7 @@ describe("loadVideo", () => {
         expect(unready.isVideoLoaded()).toBe(false);
         expect(manager.isVideoLoaded()).toBe(false);
         expect(player.loadVideoById).not.toHaveBeenCalled();
+        expect(player.cueVideoById).not.toHaveBeenCalled();
     });
 });
 
@@ -128,6 +145,40 @@ describe("autoplay block", () => {
         expect(socket.emitted("video:play")).toEqual([{ roomId: ROOM_ID, time: 50, eventId: 7, playbackRate: 1 }]);
     });
 
+    it("catches up to a newer playing state that arrived while blocked, not the one it loaded with", () => {
+        // Arrange: loaded at 30s and blocked; 5s later the room seeks to 100s
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7 }));
+        player.changeState(PlayerState.PAUSED);
+        vi.setSystemTime(T0 + 5000);
+        manager.sync(videoState({ currentTime: 100, eventId: 8 }));
+        player.seekTo.mockClear();
+
+        // Act: the user clicks play 3s after the seek
+        vi.setSystemTime(T0 + 8000);
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert
+        expect(player.seekTo).toHaveBeenCalledExactlyOnceWith(103, true);
+        expect(socket.emitted("video:play")).toEqual([]);
+    });
+
+    it("drops the catch-up once the room pauses while blocked, so the user's play is a real one", () => {
+        // Arrange: loaded at 30s and blocked, then the room pauses at 50s
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7 }));
+        player.changeState(PlayerState.PAUSED);
+        manager.sync(videoState({ currentTime: 50, isPlaying: false, eventId: 8 }));
+        player.seekTo.mockClear();
+
+        // Act
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert
+        expect(player.seekTo).not.toHaveBeenCalled();
+        expect(socket.emitted("video:play")).toEqual([{ roomId: ROOM_ID, time: 50, eventId: 8, playbackRate: 1 }]);
+    });
+
     it("respects a seek the user made while blocked instead of jumping to the server time", () => {
         // Arrange: blocked at 30s, then the user seeks to 90s, which broadcasts a pause there
         const { manager, player } = createReadyManager();
@@ -178,6 +229,26 @@ describe("video end", () => {
         // Assert
         expect(onVideoEnd).toHaveBeenCalledOnce();
         expect(manager.isVideoLoaded()).toBe(false);
+    });
+
+    it.each([
+        { state: "BUFFERING", value: PlayerState.BUFFERING },
+        { state: "CUED", value: PlayerState.CUED },
+        { state: "UNSTARTED", value: PlayerState.UNSTARTED }
+    ])("neither broadcasts nor ends the video on $state", ({ value }) => {
+        // Arrange
+        const { manager, player, onVideoEnd } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 7 }));
+        player.changeState(PlayerState.PLAYING);
+        socket.emit.mockClear();
+
+        // Act
+        player.changeState(value);
+
+        // Assert
+        expect(socket.emit).not.toHaveBeenCalled();
+        expect(onVideoEnd).not.toHaveBeenCalled();
+        expect(manager.isVideoLoaded()).toBe(true);
     });
 });
 
