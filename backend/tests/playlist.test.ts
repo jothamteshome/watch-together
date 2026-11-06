@@ -43,10 +43,10 @@ function next(room: Room, state: PlaylistState) {
 }
 
 /** Selects `index` from the host and resolves with each member's playlist:sync and the video:sync that starts it */
-async function select(room: Room, index: number) {
+async function select(room: Room, index: number, eventId?: number) {
     const members: [Socket, Socket] = [room.host, room.guest];
     const video = Promise.all(members.map(member => nextEvent<VideoState>(member, "video:sync")));
-    const playlist = await playlistSync(room, "playlist:select", { index });
+    const playlist = await playlistSync(room, "playlist:select", { index, eventId });
     return { playlist, video: await video as [VideoState, VideoState] };
 }
 
@@ -362,6 +362,36 @@ describe("eventId guard", () => {
             isLooping: false
         };
         expect(synced).toEqual([expected, expected]);
+    });
+
+    it("drops an add with a stale eventId", async () => {
+        // Arrange: the server is at eventId 2
+        const room = await setupRoom(server.url);
+        await startItem(room, VIDEO_A);
+        await addItem(room, VIDEO_B);
+
+        // Act: a stale add, then a frontend-style add as the ordering barrier
+        const synced = await collectBroadcast<PlaylistState>([room.host, room.guest], "playlist:sync", () => {
+            room.host.emit("playlist:add", { roomId: room.roomId, videoUrl: VIDEO_C, videoService: "youtube", eventId: 1 });
+            room.host.emit("playlist:add", { roomId: room.roomId, videoUrl: VIDEO_A, videoService: "youtube" });
+        });
+
+        // Assert
+        expect(synced[0].items.map(entry => entry.videoUrl)).toEqual([VIDEO_A, VIDEO_B, VIDEO_A]);
+    });
+
+    it("applies an add and a select sent at the server's current eventId", async () => {
+        // Arrange: the server is at eventId 1
+        const room = await setupRoom(server.url);
+        await startItem(room, VIDEO_A);
+
+        // Act
+        const [added] = await playlistSync(room, "playlist:add", { videoUrl: VIDEO_B, videoService: "youtube", eventId: 1 });
+        const { playlist: [selected] } = await select(room, 1, added.eventId);
+
+        // Assert
+        expect(added).toMatchObject({ eventId: 2, items: [{ videoUrl: VIDEO_A }, { videoUrl: VIDEO_B }] });
+        expect(selected).toMatchObject({ eventId: 3, currentIndex: 1 });
     });
 });
 

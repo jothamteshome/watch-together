@@ -195,6 +195,22 @@ describe("a member's second tab", () => {
         expect(snapshot.users).toEqual({ [room.hostUser.id]: room.hostUser, [room.guestUser.id]: room.guestUser });
         expect(serverManager.serverRooms.get(room.roomId)?.getUsers()).toEqual(snapshot.users);
     });
+
+    it("keeps the user in the room, unannounced, when their first tab leaves and the second stays", async () => {
+        // Arrange
+        const room = await setupRoom(server.url);
+        await joinRoom(await connectClient(server.url), room.roomId, room.guestUser);
+        const hostEvents: string[] = [];
+        room.host.onAny(event => hostEvents.push(event));
+
+        // Act
+        await exits.leaves(room.guest, room.roomId, room.guestUser);
+        await chatBarrier(room.host, room.roomId);
+
+        // Assert
+        expect(hostEvents).toEqual(["chat:sync"]);
+        expect(serverManager.serverRooms.get(room.roomId)?.hasUser(room.guestUser.id)).toBe(true);
+    });
 });
 
 
@@ -374,6 +390,7 @@ describe("disconnect", () => {
         const handled = new Promise(resolve => serverSocket.once("disconnect", resolve));
         const stayerChat: ChatMessage[] = [];
         stayer.on("chat:sync", (msg: ChatMessage) => stayerChat.push(msg));
+        const left = nextEvent<string>(stayer, "user:left");
 
         // Act
         leaver.disconnect();
@@ -382,5 +399,6 @@ describe("disconnect", () => {
 
         // Assert
         expect(stayerChat[0]).toEqual(systemMessage("disconnected", leaverUser));
+        expect(await left).toBe(leaverUser.id);
     });
 });

@@ -18,6 +18,8 @@ import {
 } from "./helpers.js";
 
 
+const LONGEST_ICON = `https://example.test/${"x".repeat(2048 - "https://example.test/".length)}`;
+
 /** Emits user:updated from `sender` and resolves with the user:updated each member received */
 function updateProfile(room: Room, sender: Socket, changes: object) {
     return collectBroadcast<User>([room.host, room.guest], "user:updated", () => sender.emit("user:updated", changes));
@@ -46,7 +48,8 @@ describe("user:updated", () => {
         { case: "a username, trimmed", changes: { username: "  Renamed  " }, applied: { username: "Renamed" } },
         { case: "a 40-character username", changes: { username: "x".repeat(40) }, applied: { username: "x".repeat(40) } },
         { case: "an https icon", changes: { icon: "https://example.test/new.png" }, applied: { icon: "https://example.test/new.png" } },
-        { case: "an http icon", changes: { icon: "http://example.test/new.png" }, applied: { icon: "http://example.test/new.png" } }
+        { case: "an http icon", changes: { icon: "http://example.test/new.png" }, applied: { icon: "http://example.test/new.png" } },
+        { case: "a 2048-character icon URL", changes: { icon: LONGEST_ICON }, applied: { icon: LONGEST_ICON } }
     ])("broadcasts $case to the room, keeping the rest of the profile", async ({ changes, applied }) => {
         // Arrange
         const room = await setupRoom(server.url);

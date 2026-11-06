@@ -69,7 +69,9 @@ describe("malformed payloads", () => {
         { case: "no user", user: undefined },
         { case: "a null user", user: null },
         { case: "a user without a string id", user: { id: 1, username: "Bad", icon: "https://example.test/bad.png" } },
-        { case: "a user without a username", user: { id: "bad-user", icon: "https://example.test/bad.png" } }
+        { case: "a user without a username", user: { id: "bad-user", icon: "https://example.test/bad.png" } },
+        { case: "a user without an icon", user: { id: "bad-user", username: "Bad" } },
+        { case: "a user with an empty id", user: { id: "", username: "Bad", icon: "https://example.test/bad.png" } }
     ])("ignores a room:join with $case", async ({ user }) => {
         // Arrange
         const roomId = await createRoom(server.url);
@@ -118,6 +120,29 @@ describe("events for a room that does not exist", () => {
             index: 0,
             msg: "hello"
         });
+        await chatBarrier(host, roomId);
+
+        // Assert
+        expect(uncaught).toEqual([]);
+        expect(events).toEqual(["chat:sync"]);
+    });
+});
+
+
+describe("events from a socket that never joined a room", () => {
+    it.each([
+        { event: "chat:message", payload: { msg: "hello" } },
+        { event: "user:updated", payload: { username: "Intruder" } }
+    ])("ignores $event without crashing the server", async ({ event, payload }) => {
+        // Arrange
+        const { roomId, host } = await setupRoom(server.url);
+        const outsider = await connectClient(server.url);
+        const events: string[] = [];
+        host.onAny(name => events.push(name));
+
+        // Act: joining a room afterwards orders the outsider's traffic: the server has handled the event
+        outsider.emit(event, { roomId, ...payload });
+        await joinRoom(outsider, await createRoom(server.url), testUser("Outsider"));
         await chatBarrier(host, roomId);
 
         // Assert
