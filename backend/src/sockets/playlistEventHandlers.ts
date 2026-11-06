@@ -37,8 +37,10 @@ function handlePlaylistNext(io: Server, { roomId, itemId }: PlaylistNextEvent) {
     const playlistState: PlaylistState | null = serverManager.getPlaylistState(roomId);
     if (!playlistState) return;
 
-    // Every client reports the end; only the first report for the current item counts
-    if (playlistState.items[playlistState.currentIndex]?.id !== itemId) return;
+    // Every client reports the end; only the first report for the current item counts.
+    // Nothing is current once the playlist has ended, so a report without an itemId can't match.
+    const current = playlistState.items[playlistState.currentIndex];
+    if (!current || current.id !== itemId) return;
 
     playlistState.eventId++;
 

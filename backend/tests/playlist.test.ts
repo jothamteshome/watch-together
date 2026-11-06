@@ -121,6 +121,25 @@ describe("playlist:next", () => {
         expect(ended).toEqual({ eventId: 4, items, currentIndex: -1, isLooping: false });
         expect(hostEvents).toEqual(["chat:sync"]);
     });
+
+    it.each([
+        { case: "an item is playing", arrange: (room: Room) => startItem(room, VIDEO_A) },
+        { case: "the playlist has ended", arrange: async (room: Room) => next(room, (await startItem(room, VIDEO_A)).playlist[0]) },
+        { case: "the playlist is empty", arrange: async () => {} }
+    ])("ignores a report without an itemId when $case", async ({ arrange }) => {
+        // Arrange
+        const room = await setupRoom(server.url);
+        await arrange(room);
+        const hostEvents: string[] = [];
+        room.host.onAny(event => hostEvents.push(event));
+
+        // Act: a client older than item ids reports the end of a video
+        room.host.emit("playlist:next", { roomId: room.roomId });
+        await chatBarrier(room.host, room.roomId);
+
+        // Assert: neither the playlist nor the video moved
+        expect(hostEvents).toEqual(["chat:sync"]);
+    });
 });
 
 
