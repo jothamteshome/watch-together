@@ -1,0 +1,38 @@
+name: Run unit tests for backend and frontend
+
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'shared/**'
+      - '.github/workflows/test-application.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [backend, frontend]
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+
+      - name: Run unit tests
+        working-directory: ${{ matrix.package }}
+        run: |
+          npm ci
+          npm test

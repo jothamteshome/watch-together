@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Test output
+dist-e2e
+test-results
+playwright-report
+coverage
+.stryker-tmp
+reports
