@@ -5,7 +5,6 @@ import type RoomSnapshot from "@shared/interfaces/RoomSnapshot";
 import type User from "@shared/interfaces/User";
 import { serverManager } from "../models/RoomManager.js";
 import type RoomState from "../models/RoomState.js";
-import { getJoinVideoState } from "./videoEventHandlers.js";
 
 
 /**
@@ -33,9 +32,10 @@ export function emitRoomSync(io: Server, socket: Socket, roomId: string, roomSta
     const snapshot: RoomSnapshot = {
         users: roomState.getUsers(),
         chatHistory: roomState.getChatHistory(),
-        video: getJoinVideoState(roomId),
+        video: roomState.projectVideoState(),
         playlist: roomState.getPlaylistState()
     };
+    console.log("Video state", snapshot.video);
     socket.emit("room:sync", snapshot);
 
     if (newUser && isNewMember) socket.broadcast.to(roomId).emit("user:joined", newUser);
