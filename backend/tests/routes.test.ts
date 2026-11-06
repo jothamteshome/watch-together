@@ -132,3 +132,19 @@ describe("GET /version", () => {
         expect(await res.json()).toEqual({ version });
     });
 });
+
+
+describe("GET /v1/users/generate", () => {
+    it("serves a new random user profile", async () => {
+        // Act
+        const res = await fetch(`${server.url}/v1/users/generate`);
+
+        // Assert
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({
+            id: expect.stringMatching(/^.+$/),
+            username: expect.stringMatching(/^.+$/),
+            icon: expect.stringMatching(/^https?:\/\//)
+        });
+    });
+});
