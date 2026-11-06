@@ -49,6 +49,11 @@ export function createAppServer() {
 
   // Socket.IO events
   io.on("connection", (socket) => {
+    // Every client event carries an object; drop anything else before a handler destructures it
+    socket.use(([, payload], next) => {
+      if (typeof payload === "object" && payload !== null) next();
+    });
+
     registerConnectionEventHandlers(io, socket);
     registerVideoEventHandlers(io, socket);
     registerPlaylistEventHandlers(io, socket);

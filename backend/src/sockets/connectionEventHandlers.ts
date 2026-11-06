@@ -9,12 +9,23 @@ import type User from "@shared/interfaces/User";
 const ROOM_EMPTY_DELETE_DELAY_MS = 1000 * 60 * 60; // 1 hour
 
 
+/** The joining user comes from the client, so check its shape before storing it */
+function isUser(user: unknown): user is User {
+  if (typeof user !== "object" || user === null) return false;
+
+  const { id, username, icon } = user as Record<string, unknown>;
+  return typeof id === "string" && id !== "" && typeof username === "string" && typeof icon === "string";
+}
+
+
 /**
  * Handle room join events from socket.IO
  * @param socket The current socket
  * @param roomId The current roomId to handle join events for
  */
 function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
+  if (!isUser(user)) return;
+
   const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
   if (!roomState) return;
 
