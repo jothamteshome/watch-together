@@ -140,6 +140,8 @@ export default class YoutubeManager extends BaseVideoManager {
 
         if (this.player.getPlaybackRate() !== playbackRate) {
             this.player.setPlaybackRate(playbackRate);
+            // The rate came from the server, so the monitor must not send it back as the user's change
+            this.lastPlaybackRate = playbackRate;
         }
 
         const drift = Math.abs(this.player.getCurrentTime() - currentTime);

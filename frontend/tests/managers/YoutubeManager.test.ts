@@ -354,6 +354,50 @@ describe("playback rate monitor", () => {
         expect(socket.emitted("video:playbackrate")).toEqual([{ roomId: ROOM_ID, time: 12, eventId: 7, playbackRate: 2 }]);
     });
 
+    it("does not send back a rate it applied from a server sync", async () => {
+        // Arrange
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 7 }));
+
+        // Act
+        manager.sync(videoState({ eventId: 8, playbackRate: 1.5 }));
+        await vi.advanceTimersByTimeAsync(1000);
+
+        // Assert
+        expect(player.rate).toBe(1.5);
+        expect(socket.emitted("video:playbackrate")).toEqual([]);
+    });
+
+    it("still sends a rate the user sets after a server sync", async () => {
+        // Arrange
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 7 }));
+        manager.sync(videoState({ eventId: 8, playbackRate: 1.5 }));
+        await vi.advanceTimersByTimeAsync(200);
+
+        // Act
+        player.rate = 2;
+        await vi.advanceTimersByTimeAsync(1000);
+
+        // Assert
+        expect(socket.emitted("video:playbackrate")).toEqual([{ roomId: ROOM_ID, time: 0, eventId: 8, playbackRate: 2 }]);
+    });
+
+    it("sends the user's change back to the old rate after a server sync changed it", async () => {
+        // Arrange: the server set 2x, and the user returns to 1x, the rate the monitor last saw before the sync
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 7 }));
+        manager.sync(videoState({ eventId: 8, playbackRate: 2 }));
+        await vi.advanceTimersByTimeAsync(200);
+
+        // Act
+        player.rate = 1;
+        await vi.advanceTimersByTimeAsync(1000);
+
+        // Assert
+        expect(socket.emitted("video:playbackrate")).toEqual([{ roomId: ROOM_ID, time: 0, eventId: 8, playbackRate: 1 }]);
+    });
+
     it("stays quiet while the rate is unchanged", async () => {
         // Arrange
         const { manager } = createReadyManager();
