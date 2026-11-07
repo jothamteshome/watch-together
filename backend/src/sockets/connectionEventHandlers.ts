@@ -33,6 +33,10 @@ function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
   const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
   if (!roomState) return;
 
+  // Moving rooms: leave the old one first. leaveRoom unregisters the socket, so it must run
+  // before addUser and registerConnection below.
+  if (socket.data.roomId && socket.data.roomId !== roomId) leaveRoom(io, socket, socket.data.roomId);
+
   // Only the user's first socket in the room counts as them joining it
   const isNewMember = !roomState.hasUser(user.id);
 

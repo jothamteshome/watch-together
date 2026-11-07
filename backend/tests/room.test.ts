@@ -352,9 +352,7 @@ describe("room isolation", () => {
         expect(memberBEvents).toEqual(["chat:sync"]);
     });
 
-    // Known bug: joinRoom doesn't leave the socket's previous room, so a socket that joins room B without
-    // leaving room A still receives A's broadcasts. This asserts the intended behaviour; remove .fails once fixed.
-    it.fails("stops sending a socket its old room's broadcasts once it joins another room", async () => {
+    it("stops sending a socket its old room's broadcasts once it joins another room", async () => {
         // Arrange
         const roomA = await createRoom(server.url);
         const roomB = await createRoom(server.url);
@@ -363,6 +361,7 @@ describe("room isolation", () => {
         const moverUser = testUser("Mover");
         await joinRoom(memberA, roomA, testUser("MemberA"));
         await joinRoom(mover, roomA, moverUser, [memberA]);
+        const left = nextEvent<string>(memberA, "user:left");
         await joinRoom(mover, roomB, moverUser);
         const moverEvents: string[] = [];
         mover.onAny(event => moverEvents.push(event));
@@ -371,8 +370,11 @@ describe("room isolation", () => {
         await chatBarrier(memberA, roomA, "room A chat");
         await chatBarrier(mover, roomB);
 
-        // Assert
+        // Assert: the mover only hears room B, and room A announced and dropped them
         expect(moverEvents).toEqual(["chat:sync"]);
+        expect(await left).toBe(moverUser.id);
+        expect(serverManager.serverRooms.get(roomA)!.hasUser(moverUser.id)).toBe(false);
+        expect(serverManager.serverRooms.get(roomB)!.hasUser(moverUser.id)).toBe(true);
     });
 });
 
