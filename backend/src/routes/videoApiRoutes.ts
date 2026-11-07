@@ -9,7 +9,7 @@ const router = Router();
 
 
 function isSupportedService(service: string): service is VideoService {
-    return service in videoProviders;
+    return Object.hasOwn(videoProviders, service);
 }
 
 
