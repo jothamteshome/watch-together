@@ -6,6 +6,11 @@ export abstract class BaseVideoManager {
     protected roomId: string;
     protected eventId: number = -1;
     protected lastPlaybackRate = 1;
+    /**
+     * The room's state as this client last knew it: what a load or a sync applied, or what this client itself sent.
+     * A player event that matches it is the player following that state, not the user, and must not be sent back.
+     */
+    protected lastApplied: { isPlaying: boolean; currentTime: number; playbackRate: number; at: number } | null = null;
     protected onVideoEnd: () => void;
     protected videoLoaded: boolean = false;
     private initialized: boolean = false;
@@ -42,6 +47,22 @@ export abstract class BaseVideoManager {
     protected markReady(): void {
         this.ready = true;
         this.resolveReady?.();
+    }
+
+    protected recordApplied(isPlaying: boolean, currentTime: number, playbackRate: number): void {
+        this.lastApplied = { isPlaying, currentTime, playbackRate, at: Date.now() };
+    }
+
+    /**
+     * True if a player now playing/paused at `time` is where the last applied state puts it: the same play state,
+     * and a time within `driftThreshold` of the expected one (which moves at the playback rate while playing).
+     */
+    protected matchesApplied(isPlaying: boolean, time: number): boolean {
+        const applied = this.lastApplied;
+        if (!applied || applied.isPlaying !== isPlaying) return false;
+
+        const elapsed = applied.isPlaying ? (Date.now() - applied.at) / 1000 * applied.playbackRate : 0;
+        return Math.abs(time - (applied.currentTime + elapsed)) <= this.driftThreshold;
     }
 
     /** Returns true if this manager can handle the given URL. */

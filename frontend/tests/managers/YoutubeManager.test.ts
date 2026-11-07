@@ -78,6 +78,47 @@ describe("loadVideo", () => {
         expect(manager.isVideoLoaded()).toBe(true);
     });
 
+    it("plays at the server's playback rate from the start, without sending it back", async () => {
+        // Arrange
+        const { manager, player } = createReadyManager();
+
+        // Act: joining a room that is playing at 2x
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7, playbackRate: 2 }));
+        await vi.advanceTimersByTimeAsync(1000);
+
+        // Assert
+        expect(player.setPlaybackRate).toHaveBeenCalledExactlyOnceWith(2);
+        expect(socket.emitted("video:playbackrate")).toEqual([]);
+    });
+
+    it("drops back to 1x when the next item starts at 1x, without sending it", async () => {
+        // Arrange: a tab at 2x
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7, playbackRate: 2 }));
+        await vi.advanceTimersByTimeAsync(200);
+        player.setPlaybackRate.mockClear();
+
+        // Act: the server starts the next item at 1x
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 0, eventId: 8, itemId: "item-next", playbackRate: 1 }));
+        await vi.advanceTimersByTimeAsync(1000);
+
+        // Assert
+        expect(player.setPlaybackRate).toHaveBeenCalledExactlyOnceWith(1);
+        expect(player.rate).toBe(1);
+        expect(socket.emitted("video:playbackrate")).toEqual([]);
+    });
+
+    it("leaves the rate alone when the player already has it", () => {
+        // Arrange
+        const { manager, player } = createReadyManager();
+
+        // Act
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7, playbackRate: 1 }));
+
+        // Assert
+        expect(player.setPlaybackRate).not.toHaveBeenCalled();
+    });
+
     it("does nothing before the player exists or for a URL without a valid video id", () => {
         // Arrange
         const unready = new YoutubeManager(ROOM_ID, vi.fn());
@@ -194,6 +235,240 @@ describe("autoplay block", () => {
         // Assert
         expect(player.seekTo).not.toHaveBeenCalled();
         expect(socket.emitted("video:play")).toEqual([expect.objectContaining({ time: 90 })]);
+    });
+});
+
+
+describe("play/pause echo", () => {
+    /** A manager playing VIDEO_A, past its load, with the room at `time` and the clock at T0 */
+    function playingRoom(time = 10, playbackRate = 1) {
+        const ready = createReadyManager();
+        ready.manager.loadVideo(VIDEO_A, videoState({ currentTime: time, eventId: 7, playbackRate }));
+        ready.player.changeState(PlayerState.PLAYING);
+        ready.player.seekTo.mockClear();
+        return ready;
+    }
+
+    it("does not send back the play the server told it to make", () => {
+        // Arrange: a paused room, cued at 10s
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 10, eventId: 7, isPlaying: false }));
+
+        // Act: the room plays; the player fires PLAYING as playVideo() takes effect
+        manager.sync(videoState({ currentTime: 10, eventId: 8, isPlaying: true }));
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert
+        expect(player.playVideo).toHaveBeenCalledOnce();
+        expect(socket.emitted("video:play")).toEqual([]);
+    });
+
+    it("does not send back the pause the server told it to make", () => {
+        // Arrange
+        const { manager, player } = playingRoom(10);
+        player.time = 20;
+
+        // Act: the room pauses at 20s
+        manager.sync(videoState({ currentTime: 20, eventId: 8, isPlaying: false }));
+        player.changeState(PlayerState.PAUSED);
+
+        // Assert
+        expect(player.pauseVideo).toHaveBeenCalledOnce();
+        expect(socket.emitted("video:pause")).toEqual([]);
+    });
+
+    it("does not send back the PLAYING that follows the catch-up seek after a load", () => {
+        // Arrange: loaded at 30s; the first PLAYING comes 2s later, and the catch-up seek moves the player to 32s
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7 }));
+        vi.setSystemTime(T0 + 2000);
+        player.changeState(PlayerState.PLAYING);
+
+        // Act: the seek makes the player buffer and play again
+        player.changeState(PlayerState.BUFFERING);
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert
+        expect(player.seekTo).toHaveBeenCalledExactlyOnceWith(32, true);
+        expect(socket.emitted("video:play")).toEqual([]);
+    });
+
+    it("does not send back the PLAYING that follows a seek the server asked for", () => {
+        // Arrange
+        const { manager, player } = playingRoom(10);
+        vi.setSystemTime(T0 + 1000);
+
+        // Act: the room seeks to 90s; the seek makes the player buffer and play again
+        manager.sync(videoState({ currentTime: 90, eventId: 8 }));
+        player.changeState(PlayerState.BUFFERING);
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert
+        expect(player.seekTo).toHaveBeenCalledExactlyOnceWith(90, true);
+        expect(socket.emitted("video:play")).toEqual([]);
+    });
+
+    it("still sends the user's own pause", () => {
+        // Arrange
+        const { player } = playingRoom(10);
+        vi.setSystemTime(T0 + 5000);
+        player.time = 15;
+
+        // Act
+        player.changeState(PlayerState.PAUSED);
+
+        // Assert
+        expect(socket.emitted("video:pause")).toEqual([{ roomId: ROOM_ID, time: 15, eventId: 7, playbackRate: 1 }]);
+    });
+
+    it("still sends the user's own play after the room paused", () => {
+        // Arrange
+        const { manager, player } = playingRoom(10);
+        manager.sync(videoState({ currentTime: 10, eventId: 8, isPlaying: false }));
+        player.changeState(PlayerState.PAUSED);
+
+        // Act
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert
+        expect(socket.emitted("video:play")).toEqual([{ roomId: ROOM_ID, time: 10, eventId: 8, playbackRate: 1 }]);
+    });
+
+    it("still sends a seek the user made while playing", () => {
+        // Arrange: the room has been playing from 10s for 5s, so the player should be at 15s
+        const { player } = playingRoom(10);
+        vi.setSystemTime(T0 + 5000);
+
+        // Act: the user drags to 60s
+        player.time = 60;
+        player.changeState(PlayerState.BUFFERING);
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert
+        expect(socket.emitted("video:play")).toEqual([{ roomId: ROOM_ID, time: 60, eventId: 7, playbackRate: 1 }]);
+    });
+
+    it("still sends a seek the user made while paused", () => {
+        // Arrange
+        const { manager, player } = playingRoom(10);
+        manager.sync(videoState({ currentTime: 10, eventId: 8, isPlaying: false }));
+        player.changeState(PlayerState.PAUSED);
+
+        // Act
+        player.time = 60;
+        player.changeState(PlayerState.PAUSED);
+
+        // Assert
+        expect(socket.emitted("video:pause")).toEqual([{ roomId: ROOM_ID, time: 60, eventId: 8, playbackRate: 1 }]);
+    });
+
+    it("sends a play made right after the user's own pause, before the server's sync returns", () => {
+        // Arrange
+        const { player } = playingRoom(10);
+        player.time = 15;
+        player.changeState(PlayerState.PAUSED);
+
+        // Act: no sync has arrived yet
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert
+        expect(socket.emitted("video:pause")).toHaveLength(1);
+        expect(socket.emitted("video:play")).toEqual([{ roomId: ROOM_ID, time: 15, eventId: 7, playbackRate: 1 }]);
+    });
+
+    it.each([
+        { drift: "0.5s ahead", offset: 0.5, sends: false },
+        { drift: "0.5s behind", offset: -0.5, sends: false },
+        { drift: "0.6s ahead", offset: 0.6, sends: true },
+        { drift: "0.6s behind", offset: -0.6, sends: true }
+    ])("a PLAYING $drift of the expected time is sent: $sends", ({ offset, sends }) => {
+        // Arrange: playing from 10s, 4s ago
+        const { player } = playingRoom(10);
+        vi.setSystemTime(T0 + 4000);
+
+        // Act
+        player.time = 14 + offset;
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert
+        expect(socket.emitted("video:play")).toHaveLength(sends ? 1 : 0);
+    });
+
+    it("expects the time to move at the playback rate", () => {
+        // Arrange: playing from 10s at 2x, 5s ago, so the player should be at 20s
+        const { player } = playingRoom(10, 2);
+        vi.setSystemTime(T0 + 5000);
+
+        // Act: playback resumes at the expected time, then at where 1x would have put it
+        player.time = 20;
+        player.changeState(PlayerState.PLAYING);
+        const sentAtExpected = socket.emitted("video:play").length;
+        player.time = 15;
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert
+        expect(sentAtExpected).toBe(0);
+        expect(socket.emitted("video:play")).toEqual([expect.objectContaining({ time: 15 })]);
+    });
+
+    it("expects a paused room's time to stay put however long it has been paused", () => {
+        // Arrange: paused at 10s, 30s ago
+        const { manager, player } = playingRoom(10);
+        manager.sync(videoState({ currentTime: 10, eventId: 8, isPlaying: false }));
+        vi.setSystemTime(T0 + 30_000);
+
+        // Act
+        player.changeState(PlayerState.PAUSED);
+
+        // Assert
+        expect(socket.emitted("video:pause")).toEqual([]);
+    });
+
+    it("does not mistake a later user play for the load's catch-up once that has happened", () => {
+        // Arrange: the load's first PLAYING is consumed, then the room pauses and plays again
+        const { manager, player } = playingRoom(10);
+        manager.sync(videoState({ currentTime: 10, eventId: 8, isPlaying: false }));
+        player.changeState(PlayerState.PAUSED);
+        manager.sync(videoState({ currentTime: 10, eventId: 9, isPlaying: true }));
+        player.changeState(PlayerState.PLAYING);
+        player.seekTo.mockClear();
+
+        // Act: the user pauses, then plays from 40s
+        player.time = 40;
+        player.changeState(PlayerState.PAUSED);
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert: a real play at the player's time, not a catch-up seek
+        expect(player.seekTo).not.toHaveBeenCalled();
+        expect(socket.emitted("video:play")).toEqual([{ roomId: ROOM_ID, time: 40, eventId: 9, playbackRate: 1 }]);
+    });
+
+    it("does not send a play again when playback resumes in the same place after buffering", () => {
+        // Arrange: the room paused at 10s, and the user presses play, which is sent
+        const { manager, player } = playingRoom(10);
+        manager.sync(videoState({ currentTime: 10, eventId: 8, isPlaying: false }));
+        player.changeState(PlayerState.PAUSED);
+        player.changeState(PlayerState.PLAYING);
+
+        // Act: 1s later the player stalls and resumes at 11s
+        vi.setSystemTime(T0 + 1000);
+        player.time = 11;
+        player.changeState(PlayerState.BUFFERING);
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert: only the user's own play went out
+        expect(socket.emitted("video:play")).toEqual([expect.objectContaining({ time: 10 })]);
+    });
+
+    it("sends a play when nothing has been applied yet", () => {
+        // Arrange: a ready player that never loaded or synced
+        const { player } = createReadyManager();
+
+        // Act
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert
+        expect(socket.emitted("video:play")).toHaveLength(1);
     });
 });
 

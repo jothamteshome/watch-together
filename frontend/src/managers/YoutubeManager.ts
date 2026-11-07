@@ -40,12 +40,13 @@ export default class YoutubeManager extends BaseVideoManager {
      * Separate from syncHandler — this is called when the playlist item changes,
      * while syncHandler only corrects drift/state on an already-loaded video.
      */
-    public loadVideo(url: string, { currentTime, isPlaying, eventId }: VideoState): void {
+    public loadVideo(url: string, { currentTime, isPlaying, playbackRate, eventId }: VideoState): void {
         if (!this.player) return;
         const videoIdentifier = this.extractId(url);
         if (!videoIdentifier) return;
         this.videoLoaded = true;
         this.eventId = eventId;
+        this.recordApplied(isPlaying, currentTime, playbackRate);
 
         if (isPlaying) {
             this.player.loadVideoById(videoIdentifier, currentTime);
@@ -58,6 +59,7 @@ export default class YoutubeManager extends BaseVideoManager {
             this.loadedServerTime = null;
             this.loadedLocalTime = null;
         }
+        this.applyPlaybackRate(playbackRate);
     }
 
     /** Extracts the YouTube video ID from a URL string. Returns null if invalid. */
@@ -138,11 +140,8 @@ export default class YoutubeManager extends BaseVideoManager {
             this.loadedLocalTime = isPlaying ? Date.now() : null;
         }
 
-        if (this.player.getPlaybackRate() !== playbackRate) {
-            this.player.setPlaybackRate(playbackRate);
-            // The rate came from the server, so the monitor must not send it back as the user's change
-            this.lastPlaybackRate = playbackRate;
-        }
+        this.recordApplied(isPlaying, currentTime, playbackRate);
+        this.applyPlaybackRate(playbackRate);
 
         const drift = Math.abs(this.player.getCurrentTime() - currentTime);
         if (drift > this.driftThreshold) {
@@ -175,6 +174,13 @@ export default class YoutubeManager extends BaseVideoManager {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
+    /** Sets a rate the server chose. The monitor must not send it back as the user's change. */
+    private applyPlaybackRate(playbackRate: number): void {
+        if (!this.player || this.player.getPlaybackRate() === playbackRate) return;
+        this.player.setPlaybackRate(playbackRate);
+        this.lastPlaybackRate = playbackRate;
+    }
+
     private onPlayerReady = () => {
         this.monitorPlaybackRate();
         this.markReady();
@@ -198,6 +204,10 @@ export default class YoutubeManager extends BaseVideoManager {
                 return;
             }
 
+            // The server's own play or seek, which the player is now following: sending it back would re-anchor the room
+            if (this.matchesApplied(true, time)) return;
+
+            this.recordApplied(true, time, playbackRate);
             socket.emit("video:play", { roomId: this.roomId, time, eventId: this.eventId, playbackRate });
         } else if (event.data === YT.PlayerState.PAUSED) {
             if (this.suppressNextPause) {
@@ -207,6 +217,9 @@ export default class YoutubeManager extends BaseVideoManager {
             }
             this.loadedServerTime = null;
             this.loadedLocalTime = null;
+            if (this.matchesApplied(false, time)) return;
+
+            this.recordApplied(false, time, playbackRate);
             socket.emit("video:pause", { roomId: this.roomId, time, eventId: this.eventId, playbackRate });
         } else if (event.data === YT.PlayerState.ENDED) {
             this.suppressNextPause = false;
