@@ -75,11 +75,11 @@ describe("starting a playlist item", () => {
         // Arrange: a paused video, part way in, at double speed
         const room = await setupRoom(server.url);
         const first = await startVideo(room);
-        await addItem(room, SECOND_URL);
+        const [queued] = await addItem(room, SECOND_URL);
         const [paused] = await videoSync(room, room.host, "video:pause", { time: 30, playbackRate: 2, eventId: first.eventId });
 
         // Act
-        const synced = await videoSync(room, room.guest, "playlist:select", { index: 1 });
+        const synced = await videoSync(room, room.guest, "playlist:select", { itemId: queued.items[1]!.id });
 
         // Assert
         const expected = {
@@ -174,8 +174,8 @@ describe("video:play / video:pause / video:seek / video:playbackrate", () => {
         // Arrange
         const room = await setupRoom(server.url);
         const first = await startVideo(room);
-        await addItem(room, SECOND_URL);
-        const [selected] = await videoSync(room, room.host, "playlist:select", { index: 1 });
+        const [queued] = await addItem(room, SECOND_URL);
+        const [selected] = await videoSync(room, room.host, "playlist:select", { itemId: queued.items[1]!.id });
 
         // Act: a seek built on the first video's state, then a current pause as the ordering barrier
         const synced = await collectBroadcast<VideoState>([room.host, room.guest], "video:sync", () => {

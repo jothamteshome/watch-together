@@ -117,7 +117,6 @@ describe("events for a room that does not exist", () => {
             videoUrl: VIDEO_URL,
             videoService: "youtube",
             itemId: "no-such-item",
-            index: 0,
             msg: "hello"
         });
         await chatBarrier(host, roomId);

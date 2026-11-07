@@ -138,6 +138,10 @@ export const test = base.extend<Fixtures>({
             await nextEvent(client, "connect");
 
             const user = { id: crypto.randomUUID(), username: "Seeder", icon: "https://api.dicebear.com/7.x/identicon/svg?seed=Seeder" };
+            // The seeder selects by position, but the server selects by item id
+            let items: PlaylistState["items"] = [];
+            client.on("playlist:sync", (state: PlaylistState) => { items = state.items; });
+
             const joined = nextEvent(client, "room:sync");
             client.emit("room:join", { roomId, user });
             await joined;
@@ -151,8 +155,11 @@ export const test = base.extend<Fixtures>({
                     }
                 },
                 select(index) {
+                    const itemId = items[index]?.id;
+                    if (!itemId) throw new Error(`No playlist item at index ${index}`);
+
                     const synced = nextEvent<PlaylistState>(client, "playlist:sync");
-                    client.emit("playlist:select", { roomId, index });
+                    client.emit("playlist:select", { roomId, itemId });
                     return synced;
                 },
                 chat(msg) {

@@ -105,8 +105,9 @@ export default function RoomPage() {
 
 
   const selectPlaylistVideo = (index: number) => {
-    if (!roomId || !roomManagerRef.current) return;
-    roomManagerRef.current.selectPlaylistVideo(index);
+    const item = playlistVideos[index];
+    if (!roomId || !roomManagerRef.current || !item) return;
+    roomManagerRef.current.selectPlaylistVideo(item.id);
   };
 
 

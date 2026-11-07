@@ -456,11 +456,11 @@ describe("outbound requests", () => {
         const { manager } = await createManager();
 
         // Act
-        manager.selectPlaylistVideo(2);
+        manager.selectPlaylistVideo("item-2");
         manager.sendChatMessage("hi all");
 
         // Assert
-        expect(socket.emitted("playlist:select")).toEqual([{ roomId: ROOM_ID, index: 2 }]);
+        expect(socket.emitted("playlist:select")).toEqual([{ roomId: ROOM_ID, itemId: "item-2" }]);
         expect(socket.emitted("chat:message")).toEqual([{ roomId: ROOM_ID, msg: "hi all" }]);
     });
 });

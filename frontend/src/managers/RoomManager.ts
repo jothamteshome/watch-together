@@ -249,10 +249,10 @@ export default class RoomManager {
 
 
     /**
-     * Selects a specific video in the playlist by index.
+     * Selects a specific video in the playlist by its item id.
      */
-    public selectPlaylistVideo = (index: number): void => {
-        socket.emit("playlist:select", { roomId: this.roomId, index });
+    public selectPlaylistVideo = (itemId: string): void => {
+        socket.emit("playlist:select", { roomId: this.roomId, itemId });
     };
 
 

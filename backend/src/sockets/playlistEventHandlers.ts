@@ -51,11 +51,11 @@ function handlePlaylistNext(io: Server, { roomId, itemId }: PlaylistNextEvent) {
 }
 
 
-function handlePlaylistSelect(io: Server, { roomId, eventId, index }: PlaylistSelectEvent) {
+function handlePlaylistSelect(io: Server, { roomId, itemId }: PlaylistSelectEvent) {
     const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
     if (!roomState) return;
 
-    const change = roomState.selectPlaylistItem(eventId, index);
+    const change = roomState.selectPlaylistItem(itemId);
     if (change) broadcastPlaylistChange(io, roomId, roomState, change, "select");
 }
 
@@ -63,5 +63,5 @@ function handlePlaylistSelect(io: Server, { roomId, eventId, index }: PlaylistSe
 export function registerPlaylistEventHandlers(io: Server, socket: Socket) {
     socket.on("playlist:add", ({ roomId, videoUrl, videoService }: PlaylistAddEvent) => handlePlaylistAdd(io, socket, { roomId, videoUrl, videoService }));
     socket.on("playlist:next", ({ roomId, itemId }: PlaylistNextEvent) => handlePlaylistNext(io, { roomId, itemId }));
-    socket.on("playlist:select", ({ roomId, eventId, index }: PlaylistSelectEvent) => handlePlaylistSelect(io, { roomId, eventId, index }));
+    socket.on("playlist:select", ({ roomId, itemId }: PlaylistSelectEvent) => handlePlaylistSelect(io, { roomId, itemId }));
 };

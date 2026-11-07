@@ -205,7 +205,7 @@ describe("playlist", () => {
         await user.click(playlistRow("Video B"));
 
         // Assert
-        expect(socket.emitted("playlist:select")).toEqual([{ roomId: ROOM_ID, index: 1 }]);
+        expect(socket.emitted("playlist:select")).toEqual([{ roomId: ROOM_ID, itemId: playlistItem(VIDEO_B).id }]);
     });
 });
 
