@@ -255,6 +255,22 @@ describe("autoplay block", () => {
         expect(socket.emitted("video:play")).toEqual([]);
     });
 
+    it("catches up at the room's playback rate, not at 1x", () => {
+        // Arrange: loaded at 30s in a room playing at 2x, and blocked
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7, playbackRate: 2 }));
+        player.changeState(PlayerState.PAUSED);
+        player.seekTo.mockClear();
+
+        // Act: the user clicks play 10s later
+        vi.setSystemTime(T0 + 10_000);
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert: the room covered 20s of video in that time
+        expect(player.seekTo).toHaveBeenCalledExactlyOnceWith(50, true);
+        expect(socket.emitted("video:play")).toEqual([]);
+    });
+
     it("doesn't pause the room when the browser blocks the play a server sync asks for", () => {
         // Arrange: loaded at 30s and blocked, then another tab acts before the user clicks play here
         const { manager, player } = createReadyManager();

@@ -202,7 +202,7 @@ export default class YoutubeManager extends BaseVideoManager {
             // First PLAYING after our own load or a server play (autoplay, or a click after an autoplay block):
             // catch up to the server's time locally. The server already has this state.
             if (this.loadedServerTime !== null && this.loadedLocalTime !== null) {
-                const elapsed = (Date.now() - this.loadedLocalTime) / 1000;
+                const elapsed = (Date.now() - this.loadedLocalTime) / 1000 * this.lastApplied!.playbackRate; // set with the anchor
                 const target = this.loadedServerTime + elapsed;
                 if (Math.abs(time - target) > this.driftThreshold) this.player!.seekTo(target, true);
                 this.loadedServerTime = null;
