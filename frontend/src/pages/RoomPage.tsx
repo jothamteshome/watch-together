@@ -10,6 +10,7 @@ import type PlaylistItem from "@shared/interfaces/PlaylistItem";
 import type User from "@shared/interfaces/User";
 import type { UserUpdateEvent } from "@shared/interfaces/UserEvents";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
+import type { VideoService } from "@shared/interfaces/VideoService";
 import RoomManager from "../managers/RoomManager";
 import { checkRoomExists } from "../services/room";
 
@@ -20,6 +21,7 @@ export default function RoomPage() {
   const roomManagerRef = useRef<RoomManager | null>(null);
   const [roomStatus, setRoomStatus] = useState<"loading" | "found" | "not-found">("loading");
   const [url, setUrl] = useState("");
+  const [currentService, setCurrentService] = useState<VideoService | undefined>();
   const [videoInfo, setVideoInfo] = useState<VideoInfo | undefined>();
   const [playlistVideos, setPlaylistVideos] = useState<PlaylistItem[]>([]);
   const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(-1);
@@ -61,7 +63,9 @@ export default function RoomPage() {
   useEffect(() => {
     if (!roomId || roomStatus !== "found") return;
 
-    const onVideoChanged = async () => {
+    const onVideoChanged = async (service: VideoService) => {
+      // The player depends on the service alone, so show it before the metadata arrives, or if it never does
+      setCurrentService(service);
       const info = await roomManagerRef.current?.fetchCurrentVideoInfo();
       setVideoInfo(info ?? undefined);
     };
@@ -162,7 +166,7 @@ export default function RoomPage() {
         <div className="w-full grid grid-cols-1 lg:grid-cols-[1fr_clamp(16.25rem,25%,35rem)] gap-y-2 gap-x-4 lg:relative">
           {/* Video player — containers are always in the DOM to support manager init */}
           <div className="order-1 lg:order-none lg:col-start-1 lg:row-start-1 lg:min-w-0 w-full flex flex-col">
-            <VideoPlayer currentService={videoInfo?.service} />
+            <VideoPlayer currentService={currentService} />
           </div>
 
           {/* Queue */}

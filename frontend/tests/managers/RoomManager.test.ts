@@ -331,7 +331,7 @@ describe("video:sync", () => {
 
         // Assert
         expect(latestPlayer().loadVideoById).toHaveBeenCalledExactlyOnceWith("aaaaaaaaaaa", 30);
-        expect(onVideoChange).toHaveBeenCalledOnce();
+        expect(onVideoChange).toHaveBeenCalledExactlyOnceWith("youtube");
     });
 
     it("drift-corrects the loaded item instead of reloading it", async () => {
@@ -346,7 +346,7 @@ describe("video:sync", () => {
         // Assert
         expect(latestPlayer().loadVideoById).toHaveBeenCalledOnce();
         expect(latestPlayer().seekTo).toHaveBeenCalledExactlyOnceWith(40, true);
-        expect(onVideoChange).toHaveBeenCalledOnce();
+        expect(onVideoChange).toHaveBeenCalledExactlyOnceWith("youtube");
     });
 
     it("reloads the same URL from 0s when the server starts a different item, such as a repeat of the one that ended", async () => {
@@ -360,7 +360,7 @@ describe("video:sync", () => {
 
         // Assert
         expect(latestPlayer().loadVideoById.mock.calls).toEqual([["aaaaaaaaaaa", 30], ["aaaaaaaaaaa", 0]]);
-        expect(onVideoChange).toHaveBeenCalledTimes(2);
+        expect(onVideoChange.mock.calls).toEqual([["youtube"], ["youtube"]]);
     });
 
     it("creates no player while the room has no video", async () => {

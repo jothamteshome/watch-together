@@ -34,7 +34,7 @@ export default class RoomManager {
     private chatManager: ChatManager;
     private usersManager: UsersManager;
     private selfUser?: User;
-    private onVideoChange: () => void;
+    private onVideoChange: (service: VideoService) => void;
     private updateSelfUserUI: (user: User) => void;
     private isDestroyed = false;
 
@@ -42,7 +42,7 @@ export default class RoomManager {
 
     constructor(
         roomId: string,
-        onVideoChange: () => void,
+        onVideoChange: (service: VideoService) => void,
         updatePlaylistUI: (items: PlaylistItem[], index: number) => void,
         updateChatUI: (messages: ChatMessage[], isHistory: boolean) => void,
         updateSelfUserUI: (user: User) => void,
@@ -167,7 +167,7 @@ export default class RoomManager {
 
         if (itemChanged) {
             manager.loadVideo(state.videoUrl, state);
-            this.onVideoChange();
+            this.onVideoChange(manager.getServiceName());
         } else {
             manager.sync(state);
         }

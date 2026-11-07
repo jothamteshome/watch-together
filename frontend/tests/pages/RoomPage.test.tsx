@@ -297,7 +297,7 @@ describe("video", () => {
         expect(screen.queryByText("No video playing")).toBeNull();
     });
 
-    it.fails("BUG B4: shows the player even when the video's metadata can't be fetched", async () => {
+    it("shows the player even when the video's metadata can't be fetched", async () => {
         // Arrange
         stubBackend({ [`${VIDEO_API}/aaaaaaaaaaa`]: { status: 500 } });
         await renderRoom();
