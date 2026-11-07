@@ -149,6 +149,8 @@ export default class YoutubeManager extends BaseVideoManager {
         }
 
         if (isPlaying && this.player.getPlayerState() !== YT.PlayerState.PLAYING) {
+            // If the browser blocks this play too, the PAUSED it fires isn't the user pausing, as after a blocked load
+            this.suppressNextPause = true;
             this.player.playVideo();
         } else if (!isPlaying && this.player.getPlayerState() !== YT.PlayerState.PAUSED) {
             this.player.pauseVideo();

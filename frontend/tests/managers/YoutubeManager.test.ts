@@ -220,6 +220,57 @@ describe("autoplay block", () => {
         expect(socket.emitted("video:play")).toEqual([{ roomId: ROOM_ID, time: 50, eventId: 8, playbackRate: 1 }]);
     });
 
+    it("doesn't pause the room when the browser blocks the play a server sync asks for", () => {
+        // Arrange: loaded at 30s and blocked, then another tab acts before the user clicks play here
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7 }));
+        player.changeState(PlayerState.PAUSED);
+
+        // Act: the sync tells the player to play, the browser blocks that too, and the player pauses again
+        manager.sync(videoState({ currentTime: 40, eventId: 8 }));
+        player.changeState(PlayerState.PAUSED);
+        const pausesWhileBlocked = socket.emitted("video:pause").length;
+
+        // Assert: nothing was sent, and the user's own play and pause afterwards still are
+        expect(player.playVideo).toHaveBeenCalledOnce();
+        expect(pausesWhileBlocked).toBe(0);
+        player.changeState(PlayerState.PLAYING);
+        player.time = 55;
+        player.changeState(PlayerState.PAUSED);
+        expect(socket.emitted("video:pause")).toEqual([{ roomId: ROOM_ID, time: 55, eventId: 8, playbackRate: 1 }]);
+    });
+
+    it("still sends the user's pause after a sync's play went through", () => {
+        // Arrange: a paused room, cued at 10s
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 10, eventId: 7, isPlaying: false }));
+
+        // Act: the room plays, the player plays, and the user pauses at 15s
+        manager.sync(videoState({ currentTime: 10, eventId: 8 }));
+        player.changeState(PlayerState.PLAYING);
+        player.time = 15;
+        player.changeState(PlayerState.PAUSED);
+
+        // Assert
+        expect(socket.emitted("video:pause")).toEqual([{ roomId: ROOM_ID, time: 15, eventId: 8, playbackRate: 1 }]);
+    });
+
+    it("doesn't swallow the user's next pause when a sync asks a playing player to play", () => {
+        // Arrange: playing, past the load's catch-up
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 10, eventId: 7 }));
+        player.changeState(PlayerState.PLAYING);
+        player.time = 10;
+
+        // Act: a sync that changes nothing but the rate, then the user pauses
+        manager.sync(videoState({ currentTime: 10, eventId: 8, playbackRate: 1.5 }));
+        player.changeState(PlayerState.PAUSED);
+
+        // Assert
+        expect(player.playVideo).not.toHaveBeenCalled();
+        expect(socket.emitted("video:pause")).toEqual([{ roomId: ROOM_ID, time: 10, eventId: 8, playbackRate: 1.5 }]);
+    });
+
     it("respects a seek the user made while blocked instead of jumping to the server time", () => {
         // Arrange: blocked at 30s, then the user seeks to 90s, which broadcasts a pause there
         const { manager, player } = createReadyManager();
