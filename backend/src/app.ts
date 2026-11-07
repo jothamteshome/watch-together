@@ -26,7 +26,10 @@ export function createAppServer() {
 
   const io = new Server(httpServer, {
     path: "/v1/socket-io",
-    cors: { origin: "*" }
+    cors: { origin: "*" },
+    // Socket.IO closes the connection of a client that sends a bigger packet. The largest real one
+    // is a chat message of 1000 characters, and a profile on room:join, so this bounds every field.
+    maxHttpBufferSize: 64 * 1024
   });
 
   app.use(cors());

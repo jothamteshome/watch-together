@@ -156,7 +156,7 @@ describe("payloads missing a field", () => {
 
     it.each(["video:play", "video:pause", "video:seek", "video:playbackrate"].flatMap(event => [
         { case: "no time", payload: { playbackRate: 1, eventId: 0 } },
-        { case: "a 900 KB string time", payload: { ...validVideo, time: "9".repeat(900_000) } },
+        { case: "a 50 KB string time", payload: { ...validVideo, time: "9".repeat(50_000) } },
         { case: "a negative time", payload: { ...validVideo, time: -1 } },
         { case: "a non-numeric playbackRate", payload: { ...validVideo, playbackRate: "fast" } },
         { case: "a zero playbackRate", payload: { ...validVideo, playbackRate: 0 } },
@@ -204,7 +204,7 @@ describe("payloads missing a field", () => {
         { case: "an empty msg", payload: { msg: "" } },
         { case: "a msg of only whitespace", payload: { msg: "  \n\t " } },
         { case: "a msg one character over the limit", payload: { msg: "x".repeat(1001) } },
-        { case: "a 900 KB msg", payload: { msg: "x".repeat(900_000) } }
+        { case: "a 50 KB msg", payload: { msg: "x".repeat(50_000) } }
     ])("drops chat:message with $case", async ({ payload }) => {
         // Arrange
         const { roomId, host } = await setupRoom(server.url);
@@ -217,5 +217,28 @@ describe("payloads missing a field", () => {
 
         // Assert: nothing was broadcast before the barrier
         expect(events).toEqual(["chat:sync"]);
+    });
+});
+
+
+describe("oversized packets", () => {
+    const MAX_PACKET = 64 * 1024;
+
+    it.each([
+        { event: "chat:message", payload: { msg: "x".repeat(MAX_PACKET) } },
+        { event: "room:leave", payload: { roomId: "x".repeat(MAX_PACKET) } },
+        { event: "room:join", payload: { roomId: "room", user: { id: "u", username: "n", icon: "x".repeat(MAX_PACKET) } } }
+    ])("disconnects a client that sends a $event larger than 64 KB", async ({ event, payload }) => {
+        // Arrange
+        const { roomId, host, guest } = await setupRoom(server.url);
+        const closed = new Promise<string>(resolve => host.once("disconnect", resolve));
+
+        // Act
+        host.emit(event, { roomId, ...payload });
+
+        // Assert: the sender is cut off, and the room still answers its other member
+        expect(await closed).toBe("transport close");
+        expect(uncaught).toEqual([]);
+        expect((await chatBarrier(guest, roomId)).text).toBe("barrier");
     });
 });
