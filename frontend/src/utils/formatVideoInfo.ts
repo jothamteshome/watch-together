@@ -61,10 +61,17 @@ export function formatRelativeDate(timestamp: number | null | undefined): string
     }
 
 
+    // Whole calendar months: the difference in month fields, less one if `now` hasn't reached the day and time
+    // that `then` had in its month. Without that, 2h across New Year would read as a year.
+    const startOfMonth = (date: Date) => Date.UTC(date.getUTCFullYear(), date.getUTCMonth());
+    let months = (now.getUTCFullYear() - then.getUTCFullYear()) * 12 + (now.getUTCMonth() - then.getUTCMonth());
+    if (now.getTime() - startOfMonth(now) < then.getTime() - startOfMonth(then)) months--;
+
+
     // Store value for timedelta experienced
     const timeDeltaMap = {
-        YEARS: now.getUTCFullYear() - then.getUTCFullYear(),
-        MONTHS: (now.getUTCMonth() - then.getUTCMonth()) + (now.getUTCFullYear() - then.getUTCFullYear()) * 12,
+        YEARS: Math.floor(months / 12),
+        MONTHS: months,
         WEEKS: Math.floor(seconds / secondsInUnit.WEEK),
         DAYS: Math.floor(seconds / secondsInUnit.DAY),
         HOURS: Math.floor(seconds / secondsInUnit.HOUR),
