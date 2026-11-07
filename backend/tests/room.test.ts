@@ -240,6 +240,45 @@ describe("room:leave", () => {
         expect(leaverChat).toEqual([]);
     });
 
+    it.each([
+        { case: "a room that does not exist", strayRoom: async () => "no-such-room" },
+        { case: "another room that exists", strayRoom: () => createRoom(server.url) }
+    ])("ignores a room:leave for $case, so the member is still announced when they disconnect", async ({ strayRoom }) => {
+        // Arrange
+        const room = await setupRoom(server.url);
+        const stray = await strayRoom();
+        const serverSocket = server.io.of("/").sockets.get(room.guest.id!)!;
+        const handled = new Promise(resolve => serverSocket.once("disconnect", resolve));
+        const left = nextEvent<string>(room.host, "user:left");
+
+        // Act: the barrier orders the stray leave before the disconnect
+        room.guest.emit("room:leave", { roomId: stray });
+        await chatBarrier(room.guest, room.roomId);
+        const stillListed = serverManager.serverRooms.get(room.roomId)!.hasUser(room.guestUser.id);
+        room.guest.disconnect();
+        await handled;
+
+        // Assert
+        expect(stillListed).toBe(true);
+        expect(await left).toBe(room.guestUser.id);
+    });
+
+    it("announces a member leaving once, however often they send room:leave", async () => {
+        // Arrange
+        const room = await setupRoom(server.url);
+        const announced: string[] = [];
+        room.host.on("user:left", (userId: string) => announced.push(userId));
+
+        // Act: joining another room orders the guest's traffic: the server has handled both leaves
+        room.guest.emit("room:leave", { roomId: room.roomId });
+        room.guest.emit("room:leave", { roomId: room.roomId });
+        await joinRoom(room.guest, await createRoom(server.url), room.guestUser);
+        await chatBarrier(room.host, room.roomId);
+
+        // Assert
+        expect(announced).toEqual([room.guestUser.id]);
+    });
+
     it("keeps an emptied room for an hour before deleting it", async () => {
         // Arrange
         const roomId = await createRoom(server.url);

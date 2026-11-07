@@ -55,6 +55,10 @@ function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
 
 
 function leaveRoom(io: Server, socket: Socket, roomId: string) {
+  // The client names the room, but a socket is only ever in the one it joined. Anything else would
+  // strip its identity and room without cleaning it up, leaving a ghost member.
+  if (roomId !== socket.data.roomId) return;
+
   socket.leave(roomId);
   logger.info({ socketId: socket.id, roomId }, "Socket left room");
 

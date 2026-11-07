@@ -21,6 +21,7 @@ const USERNAME = "SentinelUser-4f9c";
 const RENAMED = "SentinelRenamed-4f9c";
 const REJECTED_NAME = "SentinelRejected-4f9c";
 const CHAT_TEXT = "sentinel chat text 4f9c";
+const STRAY_ROOM = "SentinelRoom-4f9c";
 const VIDEO_URL = "https://www.youtube.com/watch?v=SENTINEL4f9";
 
 
@@ -104,6 +105,18 @@ describe("chat:message", () => {
 
 
 describe("user-supplied content", () => {
+    it("does not log the roomId of a room:leave for a room the socket is not in", async () => {
+        // Arrange
+        const { roomId, guest, guestUser } = await setupSentinelRoom();
+
+        // Act: a join on the same socket orders the stray leave before it, so the server has handled the leave
+        guest.emit("room:leave", { roomId: STRAY_ROOM });
+        await joinRoom(guest, roomId, guestUser);
+
+        // Assert
+        expect(loggedText()).not.toContain(STRAY_ROOM);
+    });
+
     it("never reaches the log: renames, queued videos and the payloads of rejected events", async () => {
         // Arrange
         const room = await setupSentinelRoom();
