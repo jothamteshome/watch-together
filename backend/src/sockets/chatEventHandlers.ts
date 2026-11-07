@@ -7,8 +7,17 @@ import { serverManager } from "../models/RoomManager.js";
 import { logger } from "../utils/logger.js";
 
 
+// Keep in sync with the maxLength on the chat textarea (frontend ChatInput.tsx)
+const MAX_CHAT_LENGTH = 1000;
+
 
 function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMessageEvent) {
+    // The text comes from the client and is stored in the room's history, so check it
+    if (typeof msg !== "string" || msg.trim() === "" || msg.length > MAX_CHAT_LENGTH) {
+        logger.warn({ socketId: socket.id, event: "chat:message" }, "Dropped chat event with invalid fields");
+        return;
+    }
+
     const user: User | undefined = serverManager.getUserBySocket(socket.id);
     if (!user) return;
 
@@ -24,7 +33,7 @@ function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMess
     serverManager.serverRooms.get(roomId)?.addChatMessage(userMessage);
 
     // Metadata only: the text, username and icon of a chat message are never logged
-    logger.debug({ roomId, socketId: socket.id, messageId: userMessage.id, length: msg?.length }, "Broadcasting chat:message");
+    logger.debug({ roomId, socketId: socket.id, messageId: userMessage.id, length: msg.length }, "Broadcasting chat:message");
     io.to(roomId).emit("chat:sync", userMessage);
 };
 

@@ -198,19 +198,21 @@ describe("payloads missing a field", () => {
         expect(events).toEqual(["chat:sync"]);
     });
 
-    // Known bug: handlers apply fields without checking them, so a payload missing one is stored and
-    // broadcast as undefined (a missing time poisons currentTime for later joiners). This asserts the
-    // intended behaviour; remove .fails once fixed.
-    it.fails.each([
-        { case: "chat:message without a msg", event: "chat:message", payload: {} }
-    ])("drops $case", async ({ event, payload }) => {
+    it.each([
+        { case: "no msg", payload: {} },
+        { case: "a non-string msg", payload: { msg: 42 } },
+        { case: "an empty msg", payload: { msg: "" } },
+        { case: "a msg of only whitespace", payload: { msg: "  \n\t " } },
+        { case: "a msg one character over the limit", payload: { msg: "x".repeat(1001) } },
+        { case: "a 900 KB msg", payload: { msg: "x".repeat(900_000) } }
+    ])("drops chat:message with $case", async ({ payload }) => {
         // Arrange
         const { roomId, host } = await setupRoom(server.url);
         const events: string[] = [];
         host.onAny(name => events.push(name));
 
         // Act
-        host.emit(event, { roomId, ...payload });
+        host.emit("chat:message", { roomId, ...payload });
         await chatBarrier(host, roomId);
 
         // Assert: nothing was broadcast before the barrier
