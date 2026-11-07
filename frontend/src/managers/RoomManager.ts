@@ -121,12 +121,20 @@ export default class RoomManager {
         this.selfUser = user;
         this.updateSelfUserUI(user);
 
+        // Not once(): after a network blip socket.io reconnects with a new socket id that has joined nothing,
+        // so every connect has to join again
+        socket.on("connect", this.handleConnect);
+
         if (!socket.connected) {
             socket.connect();
-            socket.once("connect", () => this.emitJoin(user));
         } else {
             this.emitJoin(user);
         }
+    };
+
+
+    private handleConnect = (): void => {
+        if (this.selfUser) this.emitJoin(this.selfUser);
     };
 
 
@@ -260,6 +268,7 @@ export default class RoomManager {
         this.isDestroyed = true;
         socket.emit("room:leave", { roomId: this.roomId });
 
+        socket.off("connect", this.handleConnect);
         socket.off("playlist:sync");
         socket.off("video:sync");
         socket.off("chat:sync");

@@ -130,6 +130,55 @@ describe("joining", () => {
         expect(socket.emitted("room:join")).toEqual([{ roomId: ROOM_ID, user: SELF_USER }]);
     });
 
+    it.each([
+        { case: "joined on an already-connected socket", connected: true },
+        { case: "joined once its socket connected", connected: false }
+    ])("joins again each time the socket reconnects, having $case", async ({ connected }) => {
+        // Arrange
+        await createManager({ connected });
+        if (!connected) await socket.receive("connect");
+        socket.emit.mockClear();
+
+        // Act: a network blip, and socket.io reconnects with a new socket id that has joined nothing
+        await socket.receive("disconnect");
+        await socket.receive("connect");
+        await socket.receive("disconnect");
+        await socket.receive("connect");
+
+        // Assert
+        expect(socket.emitted("room:join")).toEqual([
+            { roomId: ROOM_ID, user: SELF_USER },
+            { roomId: ROOM_ID, user: SELF_USER }
+        ]);
+    });
+
+    it("doesn't join again when the socket reconnects after the manager was destroyed", async () => {
+        // Arrange
+        const { manager } = await createManager();
+        manager.destroy();
+        socket.emit.mockClear();
+
+        // Act
+        await socket.receive("connect");
+
+        // Assert
+        expect(socket.emitted("room:join")).toEqual([]);
+    });
+
+    it("leaves other listeners of the socket's connect event alone when destroyed", async () => {
+        // Arrange
+        const other = vi.fn();
+        socket.on("connect", other);
+        const { manager } = await createManager();
+
+        // Act
+        manager.destroy();
+        await socket.receive("connect");
+
+        // Assert
+        expect(other).toHaveBeenCalledOnce();
+    });
+
     it("knows this user's id once the stored profile has resolved", async () => {
         // Arrange
         const { manager, updateSelfUserUI } = newManager();
