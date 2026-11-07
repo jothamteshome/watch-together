@@ -2,6 +2,7 @@ import type { Server, Socket } from "socket.io";
 import type { VideoUpdateEvent } from "@shared/interfaces/VideoEvents";
 import { serverManager } from "../models/RoomManager.js";
 import type RoomState from "../models/RoomState.js";
+import { isMember } from "./isMember.js";
 import { logger } from "../utils/logger.js";
 
 
@@ -29,12 +30,15 @@ function onVideoEvent(socket: Socket, name: string, handle: (event: VideoUpdateE
 /**
  * Handle video play events from socket.IO
  * @param io                        The server instance handling events
+ * @param socket                    The sender, who must be a member of the room
  * @param videoEvent.roomId         The current roomId to handle events for
  * @param videoEvent.time           The timestamp to set the video to
  * @param videoEvent.playbackRate   The playback rate of the video
  * @param videoEvent.eventId        The eventId of the video event
  */
-function handlePlayVideo(io: Server, { roomId, time, playbackRate, eventId }: VideoUpdateEvent) {
+function handlePlayVideo(io: Server, socket: Socket, { roomId, time, playbackRate, eventId }: VideoUpdateEvent) {
+    if (!isMember(socket, roomId)) return;
+
     const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
     if (!roomState?.updateVideo(eventId, time, playbackRate, true)) return;
 
@@ -46,12 +50,15 @@ function handlePlayVideo(io: Server, { roomId, time, playbackRate, eventId }: Vi
 /**
  * Handle video pause events from socket.IO
  * @param io                        The server instance handling events
+ * @param socket                    The sender, who must be a member of the room
  * @param videoEvent.roomId         The current roomId to handle events for
  * @param videoEvent.time           The timestamp to set the video to
  * @param videoEvent.playbackRate   The playback rate of the video
  * @param videoEvent.eventId        The eventId of the video event
  */
-function handlePauseVideo(io: Server, { roomId, time, playbackRate, eventId }: VideoUpdateEvent) {
+function handlePauseVideo(io: Server, socket: Socket, { roomId, time, playbackRate, eventId }: VideoUpdateEvent) {
+    if (!isMember(socket, roomId)) return;
+
     const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
     if (!roomState?.updateVideo(eventId, time, playbackRate, false)) return;
 
@@ -63,12 +70,15 @@ function handlePauseVideo(io: Server, { roomId, time, playbackRate, eventId }: V
 /**
  * Handle general video update events from socket.IO
  * @param io                        The server instance handling events
+ * @param socket                    The sender, who must be a member of the room
  * @param videoEvent.roomId         The current roomId to handle events for
  * @param videoEvent.time           The timestamp to set the video to
  * @param videoEvent.playbackRate   The playback rate of the video
  * @param videoEvent.eventId        The eventId of the video event
  */
-function handleUpdateVideo(io: Server, { roomId, time, playbackRate, eventId }: VideoUpdateEvent) {
+function handleUpdateVideo(io: Server, socket: Socket, { roomId, time, playbackRate, eventId }: VideoUpdateEvent) {
+    if (!isMember(socket, roomId)) return;
+
     const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
     if (!roomState?.updateVideo(eventId, time, playbackRate)) return;
 
@@ -78,8 +88,8 @@ function handleUpdateVideo(io: Server, { roomId, time, playbackRate, eventId }: 
 
 
 export function registerVideoEventHandlers(io: Server, socket: Socket) {
-    onVideoEvent(socket, "video:play", event => handlePlayVideo(io, event));
-    onVideoEvent(socket, "video:pause", event => handlePauseVideo(io, event));
-    onVideoEvent(socket, "video:seek", event => handleUpdateVideo(io, event));
-    onVideoEvent(socket, "video:playbackrate", event => handleUpdateVideo(io, event));
+    onVideoEvent(socket, "video:play", event => handlePlayVideo(io, socket, event));
+    onVideoEvent(socket, "video:pause", event => handlePauseVideo(io, socket, event));
+    onVideoEvent(socket, "video:seek", event => handleUpdateVideo(io, socket, event));
+    onVideoEvent(socket, "video:playbackrate", event => handleUpdateVideo(io, socket, event));
 }

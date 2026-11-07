@@ -4,6 +4,7 @@ import type { ChatMessageEvent } from "@shared/interfaces/ChatEvents";
 import type ChatMessage from "@shared/interfaces/ChatMessage";
 import type User from "@shared/interfaces/User";
 import { serverManager } from "../models/RoomManager.js";
+import { isMember } from "./isMember.js";
 import { logger } from "../utils/logger.js";
 
 
@@ -17,6 +18,8 @@ function handleChatMessage(io: Server, socket: Socket, { roomId, msg }: ChatMess
         logger.warn({ socketId: socket.id, event: "chat:message" }, "Dropped chat event with invalid fields");
         return;
     }
+
+    if (!isMember(socket, roomId)) return;
 
     const user: User | undefined = serverManager.getUserBySocket(socket.id);
     if (!user) return;

@@ -13,6 +13,8 @@ import {
 
 
 const VIDEO_URL = "https://www.youtube.com/watch?v=aaaaaaaaaaa";
+const validVideo = { time: 10, playbackRate: 1, eventId: 0 };
+const VIDEO_EVENTS = ["video:play", "video:pause", "video:seek", "video:playbackrate"];
 
 // Socket.IO runs handlers without a try/catch, so a handler that throws becomes an uncaughtException,
 // which ends the process in production. Under vitest the worker survives, so the tests collect them.
@@ -92,6 +94,31 @@ describe("malformed payloads", () => {
 });
 
 
+describe("events from a member of another room", () => {
+    it.each([
+        { event: "chat:message", payload: { msg: "hello" } },
+        ...VIDEO_EVENTS.map(event => ({ event, payload: validVideo }))
+    ])("ignores $event sent to a room the socket is not in", async ({ event, payload }) => {
+        // Arrange
+        const { roomId, host } = await setupRoom(server.url);
+        const otherRoomId = await createRoom(server.url);
+        const member = await connectClient(server.url);
+        await joinRoom(member, otherRoomId, testUser("Member"));
+        const events: string[] = [];
+        host.onAny(name => events.push(name));
+
+        // Act: the member's barrier in its own room orders its traffic: the server has handled the event
+        member.emit(event, { roomId, ...payload });
+        await chatBarrier(member, otherRoomId);
+        await chatBarrier(host, roomId);
+
+        // Assert
+        expect(uncaught).toEqual([]);
+        expect(events).toEqual(["chat:sync"]);
+    });
+});
+
+
 describe("events for a room that does not exist", () => {
     it.each([
         "video:play",
@@ -131,7 +158,8 @@ describe("events for a room that does not exist", () => {
 describe("events from a socket that never joined a room", () => {
     it.each([
         { event: "chat:message", payload: { msg: "hello" } },
-        { event: "user:updated", payload: { username: "Intruder" } }
+        { event: "user:updated", payload: { username: "Intruder" } },
+        ...VIDEO_EVENTS.map(event => ({ event, payload: validVideo }))
     ])("ignores $event without crashing the server", async ({ event, payload }) => {
         // Arrange
         const { roomId, host } = await setupRoom(server.url);
@@ -152,8 +180,6 @@ describe("events from a socket that never joined a room", () => {
 
 
 describe("payloads missing a field", () => {
-    const validVideo = { time: 10, playbackRate: 1, eventId: 0 };
-
     it.each(["video:play", "video:pause", "video:seek", "video:playbackrate"].flatMap(event => [
         { case: "no time", payload: { playbackRate: 1, eventId: 0 } },
         { case: "a 50 KB string time", payload: { ...validVideo, time: "9".repeat(50_000) } },

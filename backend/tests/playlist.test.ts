@@ -171,20 +171,6 @@ describe("playlist:add", () => {
         expect(state.items.map(entry => entry.addedBy)).toEqual([room.guestUser, { ...room.guestUser, username: "Renamed" }]);
     });
 
-    it("drops an add from a socket that never joined", async () => {
-        // Arrange
-        const room = await setupRoom(server.url);
-        const outsider = await connectClient(server.url);
-        const hostEvents = recordEvents(room.host);
-
-        // Act: joining a room afterwards orders the outsider's traffic: the server has handled the add
-        outsider.emit("playlist:add", { roomId: room.roomId, videoUrl: VIDEO_A, videoService: "youtube" });
-        await joinRoom(outsider, await createRoom(server.url), testUser("Outsider"));
-        await chatBarrier(room.host, room.roomId);
-
-        // Assert
-        expect(hostEvents).toEqual(["chat:sync"]);
-    });
 });
 
 
@@ -369,6 +355,36 @@ describe("eventId on add and select", () => {
 
         // Assert
         expect(selected).toMatchObject({ eventId: 3, currentIndex: 1 });
+    });
+});
+
+
+describe("playlist events from a socket that is not in the room", () => {
+    it.each([
+        { event: "playlist:add", payload: () => ({ videoUrl: VIDEO_C, videoService: "youtube" }) },
+        { event: "playlist:next", payload: (ids: string[]) => ({ itemId: ids[0] }) },
+        { event: "playlist:select", payload: (ids: string[]) => ({ itemId: ids[1] }) }
+    ].flatMap(entry => [
+        { ...entry, who: "a socket that never joined a room", joinsAnotherRoom: false },
+        { ...entry, who: "a member of another room", joinsAnotherRoom: true }
+    ]))("ignores $event from $who", async ({ event, payload, joinsAnotherRoom }) => {
+        // Arrange: A is playing with B queued
+        const room = await setupRoom(server.url);
+        await startItem(room, VIDEO_A);
+        const [queued] = await addItem(room, VIDEO_B);
+        const otherRoomId = await createRoom(server.url);
+        const outsider = await connectClient(server.url);
+        if (joinsAnotherRoom) await joinRoom(outsider, otherRoomId, testUser("Outsider"));
+        const hostEvents = recordEvents(room.host);
+
+        // Act: a join, or a barrier in its own room, orders the outsider's traffic: the server has handled the event
+        outsider.emit(event, { roomId: room.roomId, ...payload(queued.items.map(entry => entry.id)) });
+        if (joinsAnotherRoom) await chatBarrier(outsider, otherRoomId);
+        else await joinRoom(outsider, otherRoomId, testUser("Outsider"));
+        await chatBarrier(room.host, room.roomId);
+
+        // Assert
+        expect(hostEvents).toEqual(["chat:sync"]);
     });
 });
 

@@ -7,6 +7,7 @@ import { serverManager } from "../models/RoomManager.js";
 import type RoomState from "../models/RoomState.js";
 import type { PlaylistChange } from "../models/RoomState.js";
 import { isSupportedService } from "../services/videoProviders/index.js";
+import { isMember } from "./isMember.js";
 import { logger } from "../utils/logger.js";
 
 
@@ -31,6 +32,8 @@ function handlePlaylistAdd(io: Server, socket: Socket, { roomId, videoUrl, video
         return;
     }
 
+    if (!isMember(socket, roomId)) return;
+
     const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
     if (!roomState) return;
 
@@ -42,7 +45,9 @@ function handlePlaylistAdd(io: Server, socket: Socket, { roomId, videoUrl, video
 }
 
 
-function handlePlaylistNext(io: Server, { roomId, itemId }: PlaylistNextEvent) {
+function handlePlaylistNext(io: Server, socket: Socket, { roomId, itemId }: PlaylistNextEvent) {
+    if (!isMember(socket, roomId)) return;
+
     const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
     if (!roomState) return;
 
@@ -51,7 +56,9 @@ function handlePlaylistNext(io: Server, { roomId, itemId }: PlaylistNextEvent) {
 }
 
 
-function handlePlaylistSelect(io: Server, { roomId, itemId }: PlaylistSelectEvent) {
+function handlePlaylistSelect(io: Server, socket: Socket, { roomId, itemId }: PlaylistSelectEvent) {
+    if (!isMember(socket, roomId)) return;
+
     const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
     if (!roomState) return;
 
@@ -62,6 +69,6 @@ function handlePlaylistSelect(io: Server, { roomId, itemId }: PlaylistSelectEven
 
 export function registerPlaylistEventHandlers(io: Server, socket: Socket) {
     socket.on("playlist:add", ({ roomId, videoUrl, videoService }: PlaylistAddEvent) => handlePlaylistAdd(io, socket, { roomId, videoUrl, videoService }));
-    socket.on("playlist:next", ({ roomId, itemId }: PlaylistNextEvent) => handlePlaylistNext(io, { roomId, itemId }));
-    socket.on("playlist:select", ({ roomId, itemId }: PlaylistSelectEvent) => handlePlaylistSelect(io, { roomId, itemId }));
+    socket.on("playlist:next", ({ roomId, itemId }: PlaylistNextEvent) => handlePlaylistNext(io, socket, { roomId, itemId }));
+    socket.on("playlist:select", ({ roomId, itemId }: PlaylistSelectEvent) => handlePlaylistSelect(io, socket, { roomId, itemId }));
 };
