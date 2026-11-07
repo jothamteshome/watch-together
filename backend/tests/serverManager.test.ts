@@ -22,7 +22,7 @@ describe("createRoom", () => {
         const item: PlaylistItem = { id: "item-1", videoUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", videoService: "youtube", addedBy: USER };
 
         // Act: queueing into room A starts its video, and a seek moves it on
-        roomA.addPlaylistItem(0, item);
+        roomA.addPlaylistItem(item);
         roomA.updateVideo(1, 99, 1, true);
 
         // Assert

@@ -161,9 +161,7 @@ export default class RoomState {
 
 
     /** Queues an item. If nothing is playing (empty or ended playlist), it also starts it */
-    public addPlaylistItem(eventId: number, item: PlaylistItem): PlaylistChange | null {
-        if (this.playlistState.eventId > eventId) return null;
-
+    public addPlaylistItem(item: PlaylistItem): PlaylistChange {
         this.playlistState.eventId++;
         this.playlistState.items.push(item);
         if (this.playlistState.currentIndex !== -1) return "queued";

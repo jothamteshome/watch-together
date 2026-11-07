@@ -6,6 +6,7 @@ import type User from "@shared/interfaces/User";
 import { serverManager } from "../models/RoomManager.js";
 import type RoomState from "../models/RoomState.js";
 import type { PlaylistChange } from "../models/RoomState.js";
+import { isSupportedService } from "../services/videoProviders/index.js";
 import { logger } from "../utils/logger.js";
 
 
@@ -23,7 +24,13 @@ function broadcastPlaylistChange(io: Server, roomId: string, roomState: RoomStat
 }
 
 
-function handlePlaylistAdd(io: Server, socket: Socket, { roomId, eventId, videoUrl, videoService }: PlaylistAddEvent) {
+function handlePlaylistAdd(io: Server, socket: Socket, { roomId, videoUrl, videoService }: PlaylistAddEvent) {
+    // The fields come from the client, and every member's player loads the item, so check them
+    if (typeof videoUrl !== "string" || videoUrl === "" || typeof videoService !== "string" || !isSupportedService(videoService)) {
+        logger.warn({ socketId: socket.id, event: "playlist:add" }, "Dropped playlist event with invalid fields");
+        return;
+    }
+
     const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
     if (!roomState) return;
 
@@ -31,8 +38,7 @@ function handlePlaylistAdd(io: Server, socket: Socket, { roomId, eventId, videoU
     if (!addedBy) return;
 
     const item: PlaylistItem = { id: nanoid(8), videoUrl, videoService, addedBy };
-    const change = roomState.addPlaylistItem(eventId, item);
-    if (change) broadcastPlaylistChange(io, roomId, roomState, change, "add");
+    broadcastPlaylistChange(io, roomId, roomState, roomState.addPlaylistItem(item), "add");
 }
 
 
@@ -55,7 +61,7 @@ function handlePlaylistSelect(io: Server, { roomId, eventId, index }: PlaylistSe
 
 
 export function registerPlaylistEventHandlers(io: Server, socket: Socket) {
-    socket.on("playlist:add", ({ roomId, eventId, videoUrl, videoService }: PlaylistAddEvent) => handlePlaylistAdd(io, socket, { roomId, videoUrl, videoService, eventId }));
+    socket.on("playlist:add", ({ roomId, videoUrl, videoService }: PlaylistAddEvent) => handlePlaylistAdd(io, socket, { roomId, videoUrl, videoService }));
     socket.on("playlist:next", ({ roomId, itemId }: PlaylistNextEvent) => handlePlaylistNext(io, { roomId, itemId }));
     socket.on("playlist:select", ({ roomId, eventId, index }: PlaylistSelectEvent) => handlePlaylistSelect(io, { roomId, eventId, index }));
 };

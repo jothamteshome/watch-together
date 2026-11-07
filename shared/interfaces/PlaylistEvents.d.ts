@@ -4,7 +4,6 @@ import type { VideoService } from "./VideoService";
 /** Interface for `playlist:add` events */
 export interface PlaylistAddEvent {
     roomId: string;
-    eventId: number;
     videoUrl: string;
     videoService: VideoService;
 };

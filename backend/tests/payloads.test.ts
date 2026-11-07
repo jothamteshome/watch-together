@@ -178,11 +178,31 @@ describe("payloads missing a field", () => {
         expect(events).toEqual(["chat:sync"]);
     });
 
+    it.each([
+        { case: "no videoUrl", payload: { videoService: "youtube" } },
+        { case: "an empty videoUrl", payload: { videoUrl: "", videoService: "youtube" } },
+        { case: "a non-string videoUrl", payload: { videoUrl: 42, videoService: "youtube" } },
+        { case: "no videoService", payload: { videoUrl: VIDEO_URL } },
+        { case: "an unsupported videoService", payload: { videoUrl: VIDEO_URL, videoService: "tiktok" } },
+        { case: "an inherited object key as the videoService", payload: { videoUrl: VIDEO_URL, videoService: "toString" } }
+    ])("drops playlist:add with $case", async ({ payload }) => {
+        // Arrange
+        const { roomId, host } = await setupRoom(server.url);
+        const events: string[] = [];
+        host.onAny(name => events.push(name));
+
+        // Act
+        host.emit("playlist:add", { roomId, ...payload });
+        await chatBarrier(host, roomId);
+
+        // Assert: nothing was broadcast before the barrier
+        expect(events).toEqual(["chat:sync"]);
+    });
+
     // Known bug: handlers apply fields without checking them, so a payload missing one is stored and
     // broadcast as undefined (a missing time poisons currentTime for later joiners). This asserts the
     // intended behaviour; remove .fails once fixed.
     it.fails.each([
-        { case: "playlist:add without a videoUrl", event: "playlist:add", payload: { videoService: "youtube" } },
         { case: "chat:message without a msg", event: "chat:message", payload: {} }
     ])("drops $case", async ({ event, payload }) => {
         // Arrange

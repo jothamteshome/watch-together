@@ -364,20 +364,17 @@ describe("eventId guard", () => {
         expect(synced).toEqual([expected, expected]);
     });
 
-    it("drops an add with a stale eventId", async () => {
+    it("applies an add that carries a stale eventId, since an add takes none", async () => {
         // Arrange: the server is at eventId 2
         const room = await setupRoom(server.url);
         await startItem(room, VIDEO_A);
         await addItem(room, VIDEO_B);
 
-        // Act: a stale add, then a frontend-style add as the ordering barrier
-        const synced = await collectBroadcast<PlaylistState>([room.host, room.guest], "playlist:sync", () => {
-            room.host.emit("playlist:add", { roomId: room.roomId, videoUrl: VIDEO_C, videoService: "youtube", eventId: 1 });
-            room.host.emit("playlist:add", { roomId: room.roomId, videoUrl: VIDEO_A, videoService: "youtube" });
-        });
+        // Act
+        const [added] = await playlistSync(room, "playlist:add", { videoUrl: VIDEO_C, videoService: "youtube", eventId: 1 });
 
         // Assert
-        expect(synced[0].items.map(entry => entry.videoUrl)).toEqual([VIDEO_A, VIDEO_B, VIDEO_A]);
+        expect(added).toMatchObject({ eventId: 3, items: [{ videoUrl: VIDEO_A }, { videoUrl: VIDEO_B }, { videoUrl: VIDEO_C }] });
     });
 
     it("applies an add and a select sent at the server's current eventId", async () => {
