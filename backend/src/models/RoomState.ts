@@ -124,7 +124,9 @@ export default class RoomState {
     /** Projects the playing video forward to now and re-anchors the stored state to that moment, for a joiner */
     public projectVideoState(): VideoState {
         const now = Date.now();
-        if (this.videoState.isPlaying) this.videoState.currentTime += (now - this.videoState.lastUpdate) / 1000;
+        if (this.videoState.isPlaying) {
+            this.videoState.currentTime += (now - this.videoState.lastUpdate) / 1000 * this.videoState.playbackRate;
+        }
         this.videoState.lastUpdate = now;
         return this.getVideoState();
     }

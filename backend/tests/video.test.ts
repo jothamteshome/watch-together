@@ -211,6 +211,23 @@ describe("late join", () => {
         expect(video).toMatchObject({ itemId: current.itemId, videoUrl: FIRST_URL, currentTime, isPlaying, lastUpdate: T0 + 5000 });
     });
 
+    it("projects a late joiner's time at the room's playback rate", async () => {
+        // Arrange: playing from 10s at 2x at T0
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(T0);
+        const room = await setupRoom(server.url);
+        const current = await startVideo(room);
+        await videoSync(room, room.host, "video:play", { time: 10, playbackRate: 2, eventId: current.eventId });
+        vi.setSystemTime(T0 + 5000);
+        const lateJoiner = await connectClient(server.url);
+
+        // Act
+        const { video } = await joinRoom(lateJoiner, room.roomId, testUser("Late"), [room.host, room.guest]);
+
+        // Assert: 5s of wall time at 2x is 10s of video
+        expect(video).toMatchObject({ currentTime: 20, playbackRate: 2, isPlaying: true });
+    });
+
     it("projects each of several late joiners from the room's state, without compounding the elapsed time", async () => {
         // Arrange: playing from 10s at T0
         vi.useFakeTimers({ toFake: ["Date"] });
