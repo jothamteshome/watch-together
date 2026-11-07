@@ -271,6 +271,25 @@ describe("autoplay block", () => {
         expect(socket.emitted("video:play")).toEqual([]);
     });
 
+    it.each([
+        { case: "exactly at the drift threshold", playerTime: 30.5, seeks: false },
+        { case: "just past the drift threshold", playerTime: 30.6, seeks: true }
+    ])("on the first play after a block, seeks only when the player is out of sync: $case", ({ playerTime, seeks }) => {
+        // Arrange: loaded at 30s and blocked, with the player parked at `playerTime`
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7 }));
+        player.changeState(PlayerState.PAUSED);
+        player.time = playerTime;
+        player.seekTo.mockClear();
+
+        // Act: the user clicks play at once, so the room is still at 30s
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert
+        expect(player.seekTo.mock.calls).toEqual(seeks ? [[30, true]] : []);
+        expect(socket.emitted("video:play")).toEqual([]);
+    });
+
     it("doesn't pause the room when the browser blocks the play a server sync asks for", () => {
         // Arrange: loaded at 30s and blocked, then another tab acts before the user clicks play here
         const { manager, player } = createReadyManager();
