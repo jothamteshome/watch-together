@@ -162,6 +162,24 @@ describe("room:join", () => {
 });
 
 
+describe("a repeated room:join", () => {
+    it("sends the same room's snapshot again, without announcing a leave or a join", async () => {
+        // Arrange
+        const room = await setupRoom(server.url);
+        const hostEvents: string[] = [];
+        room.host.onAny(name => hostEvents.push(name));
+
+        // Act
+        const snapshot = await joinRoom(room.guest, room.roomId, room.guestUser);
+        await chatBarrier(room.host, room.roomId);
+
+        // Assert
+        expect(Object.keys(snapshot.users).sort()).toEqual([room.hostUser.id, room.guestUser.id].sort());
+        expect(hostEvents).toEqual(["chat:sync"]);
+    });
+});
+
+
 describe("a member's second tab", () => {
     /** Ways a tab exits; each resolves once the server has handled it */
     const exits = {

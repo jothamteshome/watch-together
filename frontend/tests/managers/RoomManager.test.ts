@@ -165,17 +165,20 @@ describe("joining", () => {
         expect(socket.emitted("room:join")).toEqual([]);
     });
 
-    it("leaves other listeners of the socket's connect event alone when destroyed", async () => {
+    it("removes its connect listener when destroyed, and leaves other listeners alone", async () => {
         // Arrange
         const other = vi.fn();
         socket.on("connect", other);
         const { manager } = await createManager();
+        const listenersWhileJoined = socket.listenerCount("connect");
 
         // Act
         manager.destroy();
         await socket.receive("connect");
 
         // Assert
+        expect(listenersWhileJoined).toBe(2);
+        expect(socket.listenerCount("connect")).toBe(1);
         expect(other).toHaveBeenCalledOnce();
     });
 

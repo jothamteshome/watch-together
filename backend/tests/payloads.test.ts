@@ -199,7 +199,8 @@ describe("payloads missing a field", () => {
         host.emit(event, { roomId, ...payload });
         await chatBarrier(host, roomId);
 
-        // Assert: nothing was broadcast before the barrier
+        // Assert: nothing was broadcast before the barrier, and no handler threw
+        expect(uncaught).toEqual([]);
         expect(events).toEqual(["chat:sync"]);
     });
 
@@ -209,6 +210,7 @@ describe("payloads missing a field", () => {
         { case: "a non-string videoUrl", payload: { videoUrl: 42, videoService: "youtube" } },
         { case: "no videoService", payload: { videoUrl: VIDEO_URL } },
         { case: "an unsupported videoService", payload: { videoUrl: VIDEO_URL, videoService: "tiktok" } },
+        { case: "an array as the videoService", payload: { videoUrl: VIDEO_URL, videoService: ["youtube"] } },
         { case: "an inherited object key as the videoService", payload: { videoUrl: VIDEO_URL, videoService: "toString" } }
     ])("drops playlist:add with $case", async ({ payload }) => {
         // Arrange
@@ -220,7 +222,8 @@ describe("payloads missing a field", () => {
         host.emit("playlist:add", { roomId, ...payload });
         await chatBarrier(host, roomId);
 
-        // Assert: nothing was broadcast before the barrier
+        // Assert: nothing was broadcast before the barrier, and no handler threw
+        expect(uncaught).toEqual([]);
         expect(events).toEqual(["chat:sync"]);
     });
 
@@ -241,7 +244,8 @@ describe("payloads missing a field", () => {
         host.emit("chat:message", { roomId, ...payload });
         await chatBarrier(host, roomId);
 
-        // Assert: nothing was broadcast before the barrier
+        // Assert: nothing was broadcast before the barrier, and no handler threw
+        expect(uncaught).toEqual([]);
         expect(events).toEqual(["chat:sync"]);
     });
 });

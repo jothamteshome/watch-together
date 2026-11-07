@@ -24,7 +24,8 @@ describe("formatCount", () => {
         { n: 1_500, precision: 0, expected: "2K" },
         { n: 1_050, precision: 2, expected: "1.05K" },
         { n: 1_050_000, precision: 2, expected: "1.05M" },
-        { n: 1_050_000_000, precision: 2, expected: "1.05B" }
+        { n: 1_050_000_000, precision: 2, expected: "1.05B" },
+        { n: 999_999_999_999, precision: 1, expected: "1000B" }
     ])("formats $n at precision $precision as $expected", ({ n, precision, expected }) => {
         // Act
         const formatted = formatCount(n, precision);
