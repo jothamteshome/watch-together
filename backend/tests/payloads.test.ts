@@ -153,11 +153,35 @@ describe("events from a socket that never joined a room", () => {
 
 
 describe("payloads missing a field", () => {
+    const validVideo = { time: 10, playbackRate: 1, eventId: 0 };
+
+    it.each(["video:play", "video:pause", "video:seek", "video:playbackrate"].flatMap(event => [
+        { case: "no time", payload: { playbackRate: 1, eventId: 0 } },
+        { case: "a 900 KB string time", payload: { ...validVideo, time: "9".repeat(900_000) } },
+        { case: "a negative time", payload: { ...validVideo, time: -1 } },
+        { case: "a non-numeric playbackRate", payload: { ...validVideo, playbackRate: "fast" } },
+        { case: "a zero playbackRate", payload: { ...validVideo, playbackRate: 0 } },
+        { case: "no eventId", payload: { time: 10, playbackRate: 1 } },
+        { case: "a string eventId", payload: { ...validVideo, eventId: "0" } }
+    ].map(bad => ({ event, ...bad })))
+    )("drops $event with $case", async ({ event, payload }) => {
+        // Arrange
+        const { roomId, host } = await setupRoom(server.url);
+        const events: string[] = [];
+        host.onAny(name => events.push(name));
+
+        // Act
+        host.emit(event, { roomId, ...payload });
+        await chatBarrier(host, roomId);
+
+        // Assert: nothing was broadcast before the barrier
+        expect(events).toEqual(["chat:sync"]);
+    });
+
     // Known bug: handlers apply fields without checking them, so a payload missing one is stored and
     // broadcast as undefined (a missing time poisons currentTime for later joiners). This asserts the
     // intended behaviour; remove .fails once fixed.
     it.fails.each([
-        { case: "video:play without a time", event: "video:play", payload: { playbackRate: 1, eventId: 0 } },
         { case: "playlist:add without a videoUrl", event: "playlist:add", payload: { videoService: "youtube" } },
         { case: "chat:message without a msg", event: "chat:message", payload: {} }
     ])("drops $case", async ({ event, payload }) => {
