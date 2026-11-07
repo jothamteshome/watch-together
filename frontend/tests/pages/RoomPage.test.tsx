@@ -205,7 +205,7 @@ describe("playlist", () => {
         await user.click(playlistRow("Video B"));
 
         // Assert
-        expect(socket.emitted("playlist:select")).toEqual([{ roomId: ROOM_ID, index: 1 }]);
+        expect(socket.emitted("playlist:select")).toEqual([{ roomId: ROOM_ID, itemId: playlistItem(VIDEO_B).id }]);
     });
 });
 
@@ -297,7 +297,7 @@ describe("video", () => {
         expect(screen.queryByText("No video playing")).toBeNull();
     });
 
-    it.fails("BUG B4: shows the player even when the video's metadata can't be fetched", async () => {
+    it("shows the player even when the video's metadata can't be fetched", async () => {
         // Arrange
         stubBackend({ [`${VIDEO_API}/aaaaaaaaaaa`]: { status: 500 } });
         await renderRoom();

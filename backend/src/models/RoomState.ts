@@ -124,7 +124,9 @@ export default class RoomState {
     /** Projects the playing video forward to now and re-anchors the stored state to that moment, for a joiner */
     public projectVideoState(): VideoState {
         const now = Date.now();
-        if (this.videoState.isPlaying) this.videoState.currentTime += (now - this.videoState.lastUpdate) / 1000;
+        if (this.videoState.isPlaying) {
+            this.videoState.currentTime += (now - this.videoState.lastUpdate) / 1000 * this.videoState.playbackRate;
+        }
         this.videoState.lastUpdate = now;
         return this.getVideoState();
     }
@@ -159,9 +161,7 @@ export default class RoomState {
 
 
     /** Queues an item. If nothing is playing (empty or ended playlist), it also starts it */
-    public addPlaylistItem(eventId: number, item: PlaylistItem): PlaylistChange | null {
-        if (this.playlistState.eventId > eventId) return null;
-
+    public addPlaylistItem(item: PlaylistItem): PlaylistChange {
         this.playlistState.eventId++;
         this.playlistState.items.push(item);
         if (this.playlistState.currentIndex !== -1) return "queued";
@@ -190,12 +190,14 @@ export default class RoomState {
     }
 
     /**
-     * Starts the item at `index`. Selecting the loaded item is a no-op. That includes the last item after the
-     * playlist ended: a finished playlist stays on it, and the scrubber restarts it.
+     * Starts the item with id `itemId`. An unknown id, or selecting the loaded item, is a no-op. That includes
+     * the last item after the playlist ended: a finished playlist stays on it, and the scrubber restarts it.
+     *
+     * The lookup scans the list on purpose. A click means "play this item", so an id stays right if the list ever
+     * changes under the click, and the scan is cheap next to the whole-playlist broadcast every select sends.
      */
-    public selectPlaylistItem(eventId: number, index: number): PlaylistChange | null {
-        if (this.playlistState.eventId > eventId) return null;
-
+    public selectPlaylistItem(itemId: string): PlaylistChange | null {
+        const index = this.playlistState.items.findIndex(entry => entry.id === itemId);
         const item = this.playlistState.items[index];
         if (!item || item.id === this.videoState.itemId) return null;
 

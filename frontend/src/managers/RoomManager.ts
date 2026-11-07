@@ -34,7 +34,7 @@ export default class RoomManager {
     private chatManager: ChatManager;
     private usersManager: UsersManager;
     private selfUser?: User;
-    private onVideoChange: () => void;
+    private onVideoChange: (service: VideoService) => void;
     private updateSelfUserUI: (user: User) => void;
     private isDestroyed = false;
 
@@ -42,7 +42,7 @@ export default class RoomManager {
 
     constructor(
         roomId: string,
-        onVideoChange: () => void,
+        onVideoChange: (service: VideoService) => void,
         updatePlaylistUI: (items: PlaylistItem[], index: number) => void,
         updateChatUI: (messages: ChatMessage[], isHistory: boolean) => void,
         updateSelfUserUI: (user: User) => void,
@@ -121,12 +121,20 @@ export default class RoomManager {
         this.selfUser = user;
         this.updateSelfUserUI(user);
 
+        // Not once(): after a network blip socket.io reconnects with a new socket id that has joined nothing,
+        // so every connect has to join again
+        socket.on("connect", this.handleConnect);
+
         if (!socket.connected) {
             socket.connect();
-            socket.once("connect", () => this.emitJoin(user));
         } else {
             this.emitJoin(user);
         }
+    };
+
+
+    private handleConnect = (): void => {
+        if (this.selfUser) this.emitJoin(this.selfUser);
     };
 
 
@@ -167,7 +175,7 @@ export default class RoomManager {
 
         if (itemChanged) {
             manager.loadVideo(state.videoUrl, state);
-            this.onVideoChange();
+            this.onVideoChange(manager.getServiceName());
         } else {
             manager.sync(state);
         }
@@ -249,10 +257,10 @@ export default class RoomManager {
 
 
     /**
-     * Selects a specific video in the playlist by index.
+     * Selects a specific video in the playlist by its item id.
      */
-    public selectPlaylistVideo = (index: number): void => {
-        socket.emit("playlist:select", { roomId: this.roomId, index });
+    public selectPlaylistVideo = (itemId: string): void => {
+        socket.emit("playlist:select", { roomId: this.roomId, itemId });
     };
 
 
@@ -260,6 +268,7 @@ export default class RoomManager {
         this.isDestroyed = true;
         socket.emit("room:leave", { roomId: this.roomId });
 
+        socket.off("connect", this.handleConnect);
         socket.off("playlist:sync");
         socket.off("video:sync");
         socket.off("chat:sync");

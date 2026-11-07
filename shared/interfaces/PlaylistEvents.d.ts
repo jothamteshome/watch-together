@@ -4,7 +4,6 @@ import type { VideoService } from "./VideoService";
 /** Interface for `playlist:add` events */
 export interface PlaylistAddEvent {
     roomId: string;
-    eventId: number;
     videoUrl: string;
     videoService: VideoService;
 };
@@ -20,6 +19,5 @@ export interface PlaylistNextEvent {
 /** Interface for `playlist:select` events */
 export interface PlaylistSelectEvent {
     roomId: string;
-    eventId: number;
-    index: number;
+    itemId: string; // id of the item to play
 }

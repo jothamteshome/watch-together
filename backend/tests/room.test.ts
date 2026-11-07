@@ -162,6 +162,24 @@ describe("room:join", () => {
 });
 
 
+describe("a repeated room:join", () => {
+    it("sends the same room's snapshot again, without announcing a leave or a join", async () => {
+        // Arrange
+        const room = await setupRoom(server.url);
+        const hostEvents: string[] = [];
+        room.host.onAny(name => hostEvents.push(name));
+
+        // Act
+        const snapshot = await joinRoom(room.guest, room.roomId, room.guestUser);
+        await chatBarrier(room.host, room.roomId);
+
+        // Assert
+        expect(Object.keys(snapshot.users).sort()).toEqual([room.hostUser.id, room.guestUser.id].sort());
+        expect(hostEvents).toEqual(["chat:sync"]);
+    });
+});
+
+
 describe("a member's second tab", () => {
     /** Ways a tab exits; each resolves once the server has handled it */
     const exits = {
@@ -240,6 +258,45 @@ describe("room:leave", () => {
         expect(leaverChat).toEqual([]);
     });
 
+    it.each([
+        { case: "a room that does not exist", strayRoom: async () => "no-such-room" },
+        { case: "another room that exists", strayRoom: () => createRoom(server.url) }
+    ])("ignores a room:leave for $case, so the member is still announced when they disconnect", async ({ strayRoom }) => {
+        // Arrange
+        const room = await setupRoom(server.url);
+        const stray = await strayRoom();
+        const serverSocket = server.io.of("/").sockets.get(room.guest.id!)!;
+        const handled = new Promise(resolve => serverSocket.once("disconnect", resolve));
+        const left = nextEvent<string>(room.host, "user:left");
+
+        // Act: the barrier orders the stray leave before the disconnect
+        room.guest.emit("room:leave", { roomId: stray });
+        await chatBarrier(room.guest, room.roomId);
+        const stillListed = serverManager.serverRooms.get(room.roomId)!.hasUser(room.guestUser.id);
+        room.guest.disconnect();
+        await handled;
+
+        // Assert
+        expect(stillListed).toBe(true);
+        expect(await left).toBe(room.guestUser.id);
+    });
+
+    it("announces a member leaving once, however often they send room:leave", async () => {
+        // Arrange
+        const room = await setupRoom(server.url);
+        const announced: string[] = [];
+        room.host.on("user:left", (userId: string) => announced.push(userId));
+
+        // Act: joining another room orders the guest's traffic: the server has handled both leaves
+        room.guest.emit("room:leave", { roomId: room.roomId });
+        room.guest.emit("room:leave", { roomId: room.roomId });
+        await joinRoom(room.guest, await createRoom(server.url), room.guestUser);
+        await chatBarrier(room.host, room.roomId);
+
+        // Assert
+        expect(announced).toEqual([room.guestUser.id]);
+    });
+
     it("keeps an emptied room for an hour before deleting it", async () => {
         // Arrange
         const roomId = await createRoom(server.url);
@@ -313,9 +370,7 @@ describe("room:leave", () => {
 
 
 describe("room creation", () => {
-    // Known bug: deletion is only scheduled when the last member leaves, so a room nobody ever joins
-    // is kept forever. This asserts the intended behaviour; remove .fails once fixed.
-    it.fails("deletes a room that nobody joins within an hour", async () => {
+    it("deletes a room that nobody joins within an hour", async () => {
         // Arrange
         vi.useFakeTimers({ toFake: ["setTimeout"] });
         const roomId = await createRoom(server.url);
@@ -352,9 +407,7 @@ describe("room isolation", () => {
         expect(memberBEvents).toEqual(["chat:sync"]);
     });
 
-    // Known bug: joinRoom doesn't leave the socket's previous room, so a socket that joins room B without
-    // leaving room A still receives A's broadcasts. This asserts the intended behaviour; remove .fails once fixed.
-    it.fails("stops sending a socket its old room's broadcasts once it joins another room", async () => {
+    it("stops sending a socket its old room's broadcasts once it joins another room", async () => {
         // Arrange
         const roomA = await createRoom(server.url);
         const roomB = await createRoom(server.url);
@@ -363,6 +416,7 @@ describe("room isolation", () => {
         const moverUser = testUser("Mover");
         await joinRoom(memberA, roomA, testUser("MemberA"));
         await joinRoom(mover, roomA, moverUser, [memberA]);
+        const left = nextEvent<string>(memberA, "user:left");
         await joinRoom(mover, roomB, moverUser);
         const moverEvents: string[] = [];
         mover.onAny(event => moverEvents.push(event));
@@ -371,8 +425,11 @@ describe("room isolation", () => {
         await chatBarrier(memberA, roomA, "room A chat");
         await chatBarrier(mover, roomB);
 
-        // Assert
+        // Assert: the mover only hears room B, and room A announced and dropped them
         expect(moverEvents).toEqual(["chat:sync"]);
+        expect(await left).toBe(moverUser.id);
+        expect(serverManager.serverRooms.get(roomA)!.hasUser(moverUser.id)).toBe(false);
+        expect(serverManager.serverRooms.get(roomB)!.hasUser(moverUser.id)).toBe(true);
     });
 });
 

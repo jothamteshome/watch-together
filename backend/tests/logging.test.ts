@@ -21,6 +21,7 @@ const USERNAME = "SentinelUser-4f9c";
 const RENAMED = "SentinelRenamed-4f9c";
 const REJECTED_NAME = "SentinelRejected-4f9c";
 const CHAT_TEXT = "sentinel chat text 4f9c";
+const STRAY_ROOM = "SentinelRoom-4f9c";
 const VIDEO_URL = "https://www.youtube.com/watch?v=SENTINEL4f9";
 
 
@@ -103,7 +104,32 @@ describe("chat:message", () => {
 });
 
 
+describe("room membership", () => {
+    it("logs a join, and no leave for a first join or a repeated join of the same room", async () => {
+        // Arrange + Act: two first joins, then a repeat of the guest's
+        const { roomId, guest, guestUser } = await setupSentinelRoom();
+        await joinRoom(guest, roomId, guestUser);
+
+        // Assert
+        expect(logger.info).toHaveBeenCalledWith({ socketId: guest.id, roomId }, "Socket joined room");
+        expect(logger.info).not.toHaveBeenCalledWith(expect.anything(), "Socket left room");
+    });
+});
+
+
 describe("user-supplied content", () => {
+    it("does not log the roomId of a room:leave for a room the socket is not in", async () => {
+        // Arrange
+        const { roomId, guest, guestUser } = await setupSentinelRoom();
+
+        // Act: a join on the same socket orders the stray leave before it, so the server has handled the leave
+        guest.emit("room:leave", { roomId: STRAY_ROOM });
+        await joinRoom(guest, roomId, guestUser);
+
+        // Assert
+        expect(loggedText()).not.toContain(STRAY_ROOM);
+    });
+
     it("never reaches the log: renames, queued videos and the payloads of rejected events", async () => {
         // Arrange
         const room = await setupSentinelRoom();
@@ -117,12 +143,18 @@ describe("user-supplied content", () => {
         host.emit("room:join", { roomId, user: { id: "", username: REJECTED_NAME, icon: "" } });
         guest.emit("chat:message", `${REJECTED_NAME} sent as a bare string`);
         guest.emit("user:updated", { username: REJECTED_NAME.repeat(10) });
+        guest.emit("chat:message", { roomId, msg: REJECTED_NAME.repeat(100) });
+        guest.emit("video:play", { roomId, time: REJECTED_NAME, playbackRate: 1, eventId: 0 });
+        guest.emit("playlist:add", { roomId, videoUrl: VIDEO_URL, videoService: REJECTED_NAME });
         await roomBarrier(roomId, [host, guest]);
 
         // Assert: the rejections are visible, with the event but never the payload
         expect(logger.warn).toHaveBeenCalledWith({ socketId: host.id }, "Rejected room:join with a malformed user");
         expect(logger.warn).toHaveBeenCalledWith({ socketId: guest.id, event: "chat:message" }, "Dropped event with a non-object payload");
         expect(logger.warn).toHaveBeenCalledWith({ socketId: guest.id }, "Rejected malformed user:updated payload");
+        expect(logger.warn).toHaveBeenCalledWith({ socketId: guest.id, event: "chat:message" }, "Dropped chat event with invalid fields");
+        expect(logger.warn).toHaveBeenCalledWith({ socketId: guest.id, event: "video:play" }, "Dropped video event with invalid fields");
+        expect(logger.warn).toHaveBeenCalledWith({ socketId: guest.id, event: "playlist:add" }, "Dropped playlist event with invalid fields");
 
         // Assert: none of the content was logged
         for (const secret of [USERNAME, RENAMED, REJECTED_NAME, VIDEO_URL, room.hostUser.id, room.hostUser.icon]) {

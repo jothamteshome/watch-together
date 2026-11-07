@@ -49,6 +49,12 @@ export class FakeSocket {
     }
 
 
+    /** How many listeners are registered for `event` */
+    listenerCount(event: string): number {
+        return this.listeners.get(event)?.length ?? 0;
+    }
+
+
     /** Payloads of every `event` this client has emitted, in order */
     emitted(event: string): unknown[] {
         return this.emit.mock.calls.filter(([name]) => name === event).map(([, payload]) => payload);

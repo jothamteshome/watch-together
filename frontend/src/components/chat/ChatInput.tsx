@@ -1,6 +1,10 @@
 import { useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 
 
+// Keep in sync with MAX_CHAT_LENGTH in backend/src/sockets/chatEventHandlers.ts
+const MAX_CHAT_LENGTH = 1000;
+
+
 interface ChatInputProps {
     onSend: (msg: string) => void;
 }
@@ -47,6 +51,7 @@ export default function ChatInput({ onSend }: ChatInputProps) {
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             rows={2}
+            maxLength={MAX_CHAT_LENGTH}
             className="w-full bg-neutral-600 rounded-sm resize-none text-white p-1" />
     );
 }

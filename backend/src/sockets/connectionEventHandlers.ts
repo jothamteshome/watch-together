@@ -7,8 +7,6 @@ import { logger } from "../utils/logger.js";
 import type { RoomJoinEvent } from "@shared/interfaces/RoomEvents";
 import type User from "@shared/interfaces/User";
 
-const ROOM_EMPTY_DELETE_DELAY_MS = 1000 * 60 * 60; // 1 hour
-
 
 /** The joining user comes from the client, so check its shape before storing it */
 function isUser(user: unknown): user is User {
@@ -33,6 +31,10 @@ function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
   const roomState: RoomState | undefined = serverManager.serverRooms.get(roomId);
   if (!roomState) return;
 
+  // Moving rooms: leave the old one first. leaveRoom unregisters the socket, so it must run
+  // before addUser and registerConnection below.
+  if (socket.data.roomId && socket.data.roomId !== roomId) leaveRoom(io, socket, socket.data.roomId);
+
   // Only the user's first socket in the room counts as them joining it
   const isNewMember = !roomState.hasUser(user.id);
 
@@ -53,6 +55,10 @@ function joinRoom(io: Server, socket: Socket, roomId: string, user: User) {
 
 
 function leaveRoom(io: Server, socket: Socket, roomId: string) {
+  // The client names the room, but a socket is only ever in the one it joined. Anything else would
+  // strip its identity and room without cleaning it up, leaving a ghost member.
+  if (roomId !== socket.data.roomId) return;
+
   socket.leave(roomId);
   logger.info({ socketId: socket.id, roomId }, "Socket left room");
 
@@ -113,12 +119,7 @@ function disconnectCleanup(socket: Socket, roomId: string, roomState?: RoomState
 
   // If users list for room is empty, schedule the room for deletion. addUser()
   // cancels this automatically if someone rejoins before it fires.
-  if (roomState.getUserCount() === 0) {
-    roomState.scheduleDeletion(() => {
-      serverManager.serverRooms.delete(roomId);
-      logger.info({ roomId }, "Room deleted because it is empty");
-    }, ROOM_EMPTY_DELETE_DELAY_MS);
-  }
+  if (roomState.getUserCount() === 0) serverManager.scheduleRoomDeletion(roomId);
 
   return userLeftRoom;
 }

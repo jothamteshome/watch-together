@@ -1,16 +1,10 @@
 import { Router } from "express";
 import { serverManager } from "../models/RoomManager.js";
-import videoProviders from "../services/videoProviders/index.js";
+import videoProviders, { isSupportedService } from "../services/videoProviders/index.js";
 import { logger } from "../utils/logger.js";
-import type { VideoService } from "@shared/interfaces/VideoService";
 
 
 const router = Router();
-
-
-function isSupportedService(service: string): service is VideoService {
-    return service in videoProviders;
-}
 
 
 /** GET /:service/video/:id — returns normalized video metadata; `id` is opaque and service-defined */

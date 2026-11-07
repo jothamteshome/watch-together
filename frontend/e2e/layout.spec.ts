@@ -138,9 +138,7 @@ test.describe("room layout", () => {
         await expect(page.getByText("No video playing")).toBeHidden();
     });
 
-    test("BUG B4: the player shows even when the video's metadata can't be fetched", async ({ page, createRoom, seeder }) => {
-        test.fail();
-
+    test("the player shows even when the video's metadata can't be fetched", async ({ page, createRoom, seeder }) => {
         // Arrange
         const roomId = await createRoom();
         await enterRoom(page, roomId);

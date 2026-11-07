@@ -95,9 +95,7 @@ describe("GET /v1/video-api/:service/video/:id", () => {
         expect(getVideoInfo).toHaveBeenCalledTimes(2);
     });
 
-    // Known bug: isSupportedService() uses `in`, which also matches keys inherited from Object.prototype,
-    // so these reach the provider lookup and fail with 500. This asserts the intended behaviour; remove .fails once fixed.
-    it.fails.each(["toString", "constructor", "__proto__"])("rejects the inherited object key %s as an unsupported service", async (service) => {
+    it.each(["toString", "constructor", "__proto__"])("rejects the inherited object key %s as an unsupported service", async (service) => {
         // Act
         const res = await getVideo(service);
 

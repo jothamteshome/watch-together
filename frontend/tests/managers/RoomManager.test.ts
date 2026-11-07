@@ -130,6 +130,58 @@ describe("joining", () => {
         expect(socket.emitted("room:join")).toEqual([{ roomId: ROOM_ID, user: SELF_USER }]);
     });
 
+    it.each([
+        { case: "joined on an already-connected socket", connected: true },
+        { case: "joined once its socket connected", connected: false }
+    ])("joins again each time the socket reconnects, having $case", async ({ connected }) => {
+        // Arrange
+        await createManager({ connected });
+        if (!connected) await socket.receive("connect");
+        socket.emit.mockClear();
+
+        // Act: a network blip, and socket.io reconnects with a new socket id that has joined nothing
+        await socket.receive("disconnect");
+        await socket.receive("connect");
+        await socket.receive("disconnect");
+        await socket.receive("connect");
+
+        // Assert
+        expect(socket.emitted("room:join")).toEqual([
+            { roomId: ROOM_ID, user: SELF_USER },
+            { roomId: ROOM_ID, user: SELF_USER }
+        ]);
+    });
+
+    it("doesn't join again when the socket reconnects after the manager was destroyed", async () => {
+        // Arrange
+        const { manager } = await createManager();
+        manager.destroy();
+        socket.emit.mockClear();
+
+        // Act
+        await socket.receive("connect");
+
+        // Assert
+        expect(socket.emitted("room:join")).toEqual([]);
+    });
+
+    it("removes its connect listener when destroyed, and leaves other listeners alone", async () => {
+        // Arrange
+        const other = vi.fn();
+        socket.on("connect", other);
+        const { manager } = await createManager();
+        const listenersWhileJoined = socket.listenerCount("connect");
+
+        // Act
+        manager.destroy();
+        await socket.receive("connect");
+
+        // Assert
+        expect(listenersWhileJoined).toBe(2);
+        expect(socket.listenerCount("connect")).toBe(1);
+        expect(other).toHaveBeenCalledOnce();
+    });
+
     it("knows this user's id once the stored profile has resolved", async () => {
         // Arrange
         const { manager, updateSelfUserUI } = newManager();
@@ -331,7 +383,7 @@ describe("video:sync", () => {
 
         // Assert
         expect(latestPlayer().loadVideoById).toHaveBeenCalledExactlyOnceWith("aaaaaaaaaaa", 30);
-        expect(onVideoChange).toHaveBeenCalledOnce();
+        expect(onVideoChange).toHaveBeenCalledExactlyOnceWith("youtube");
     });
 
     it("drift-corrects the loaded item instead of reloading it", async () => {
@@ -346,7 +398,7 @@ describe("video:sync", () => {
         // Assert
         expect(latestPlayer().loadVideoById).toHaveBeenCalledOnce();
         expect(latestPlayer().seekTo).toHaveBeenCalledExactlyOnceWith(40, true);
-        expect(onVideoChange).toHaveBeenCalledOnce();
+        expect(onVideoChange).toHaveBeenCalledExactlyOnceWith("youtube");
     });
 
     it("reloads the same URL from 0s when the server starts a different item, such as a repeat of the one that ended", async () => {
@@ -360,7 +412,7 @@ describe("video:sync", () => {
 
         // Assert
         expect(latestPlayer().loadVideoById.mock.calls).toEqual([["aaaaaaaaaaa", 30], ["aaaaaaaaaaa", 0]]);
-        expect(onVideoChange).toHaveBeenCalledTimes(2);
+        expect(onVideoChange.mock.calls).toEqual([["youtube"], ["youtube"]]);
     });
 
     it("creates no player while the room has no video", async () => {
@@ -456,11 +508,11 @@ describe("outbound requests", () => {
         const { manager } = await createManager();
 
         // Act
-        manager.selectPlaylistVideo(2);
+        manager.selectPlaylistVideo("item-2");
         manager.sendChatMessage("hi all");
 
         // Assert
-        expect(socket.emitted("playlist:select")).toEqual([{ roomId: ROOM_ID, index: 2 }]);
+        expect(socket.emitted("playlist:select")).toEqual([{ roomId: ROOM_ID, itemId: "item-2" }]);
         expect(socket.emitted("chat:message")).toEqual([{ roomId: ROOM_ID, msg: "hi all" }]);
     });
 });

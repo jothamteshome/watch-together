@@ -39,4 +39,17 @@ describe("chat:message", () => {
         });
         expect(guestCopy).toEqual(hostCopy);
     });
+
+    it("broadcasts a message of exactly the 1000 character limit", async () => {
+        // Arrange
+        const { roomId, host, guest } = await setupRoom(server.url);
+        const msg = "x".repeat(1000);
+
+        // Act
+        const [hostCopy] = await collectBroadcast<ChatMessage>([host, guest], "chat:sync", () =>
+            host.emit("chat:message", { roomId, msg }));
+
+        // Assert
+        expect(hostCopy.text).toBe(msg);
+    });
 });

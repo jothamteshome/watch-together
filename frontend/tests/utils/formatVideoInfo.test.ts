@@ -24,7 +24,8 @@ describe("formatCount", () => {
         { n: 1_500, precision: 0, expected: "2K" },
         { n: 1_050, precision: 2, expected: "1.05K" },
         { n: 1_050_000, precision: 2, expected: "1.05M" },
-        { n: 1_050_000_000, precision: 2, expected: "1.05B" }
+        { n: 1_050_000_000, precision: 2, expected: "1.05B" },
+        { n: 999_999_999_999, precision: 1, expected: "1000B" }
     ])("formats $n at precision $precision as $expected", ({ n, precision, expected }) => {
         // Act
         const formatted = formatCount(n, precision);
@@ -41,13 +42,11 @@ describe("formatCount", () => {
         expect(formatted).toBe("0");
     });
 
-    // Known bug: a count that rounds up to 1000 of a unit stays in that unit ("1000K") instead of
-    // moving to the next one. This asserts the intended behaviour; remove .fails once fixed.
-    it.fails.each([
+    it.each([
         { n: 999_999, precision: 1, expected: "1M" },
         { n: 999_500, precision: 0, expected: "1M" },
         { n: 999_999_999, precision: 1, expected: "1B" }
-    ])("BUG B5: formats $n at precision $precision as $expected, not 1000 of the smaller unit", ({ n, precision, expected }) => {
+    ])("formats $n at precision $precision as $expected, not 1000 of the smaller unit", ({ n, precision, expected }) => {
         // Act
         const formatted = formatCount(n, precision);
 
@@ -141,13 +140,15 @@ describe("formatRelativeDate", () => {
         expect(formatted).toBe("");
     });
 
-    // Known bug: years and months are calendar-field differences, not elapsed time, so crossing a
-    // month or year boundary jumps to that unit. This asserts the intended behaviour; remove .fails once fixed.
-    it.fails.each([
+    it.each([
         { case: "2h across New Year", now: Date.UTC(2026, 0, 1, 1), timestamp: Date.UTC(2025, 11, 31, 23), expected: "2 hours ago" },
         { case: "1d across a month end", now: Date.UTC(2026, 2, 1, 12), timestamp: Date.UTC(2026, 1, 28, 12), expected: "1 day ago" },
-        { case: "11 months across New Year", now: NOW, timestamp: Date.UTC(2025, 3, 20, 12), expected: "11 months ago" }
-    ])("BUG B6: reads $expected for $case", ({ now, timestamp, expected }) => {
+        { case: "11 months across New Year", now: NOW, timestamp: Date.UTC(2025, 3, 20, 12), expected: "11 months ago" },
+        { case: "a month less a minute", now: NOW, timestamp: Date.UTC(2026, 1, 20, 12, 1), expected: "3 weeks ago" },
+        { case: "a year less a minute", now: NOW, timestamp: Date.UTC(2025, 2, 20, 12, 1), expected: "11 months ago" },
+        { case: "a month and a minute", now: NOW, timestamp: Date.UTC(2026, 1, 20, 11, 59), expected: "1 month ago" },
+        { case: "a year and a minute", now: NOW, timestamp: Date.UTC(2025, 2, 20, 11, 59), expected: "1 year ago" }
+    ])("reads $expected for $case", ({ now, timestamp, expected }) => {
         // Arrange
         vi.setSystemTime(now);
 

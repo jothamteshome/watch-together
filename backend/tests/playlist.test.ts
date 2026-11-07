@@ -42,11 +42,11 @@ function next(room: Room, state: PlaylistState) {
     return playlistSync(room, "playlist:next", { itemId: state.items[state.currentIndex]!.id });
 }
 
-/** Selects `index` from the host and resolves with each member's playlist:sync and the video:sync that starts it */
-async function select(room: Room, index: number, eventId?: number) {
+/** Selects `itemId` from the host and resolves with each member's playlist:sync and the video:sync that starts it */
+async function select(room: Room, itemId: string) {
     const members: [Socket, Socket] = [room.host, room.guest];
     const video = Promise.all(members.map(member => nextEvent<VideoState>(member, "video:sync")));
-    const playlist = await playlistSync(room, "playlist:select", { index, eventId });
+    const playlist = await playlistSync(room, "playlist:select", { itemId });
     return { playlist, video: await video as [VideoState, VideoState] };
 }
 
@@ -171,20 +171,6 @@ describe("playlist:add", () => {
         expect(state.items.map(entry => entry.addedBy)).toEqual([room.guestUser, { ...room.guestUser, username: "Renamed" }]);
     });
 
-    it("drops an add from a socket that never joined", async () => {
-        // Arrange
-        const room = await setupRoom(server.url);
-        const outsider = await connectClient(server.url);
-        const hostEvents = recordEvents(room.host);
-
-        // Act: joining a room afterwards orders the outsider's traffic: the server has handled the add
-        outsider.emit("playlist:add", { roomId: room.roomId, videoUrl: VIDEO_A, videoService: "youtube" });
-        await joinRoom(outsider, await createRoom(server.url), testUser("Outsider"));
-        await chatBarrier(room.host, room.roomId);
-
-        // Assert
-        expect(hostEvents).toEqual(["chat:sync"]);
-    });
 });
 
 
@@ -255,7 +241,7 @@ describe("playlist:next", () => {
         const room = await setupRoom(server.url);
         await startItem(room, VIDEO_A);
         const [queued] = await addItem(room, VIDEO_B);
-        await select(room, 1);
+        await select(room, queued.items[1]!.id);
         const hostEvents = recordEvents(room.host);
 
         // Act: a late report that A ended
@@ -273,10 +259,10 @@ describe("playlist:select", () => {
         // Arrange
         const room = await setupRoom(server.url);
         await startItem(room, VIDEO_A);
-        await addItem(room, VIDEO_B);
+        const [queued] = await addItem(room, VIDEO_B);
 
         // Act
-        const synced = await playlistSync(room, "playlist:select", { index: 1 });
+        const synced = await playlistSync(room, "playlist:select", { itemId: queued.items[1]!.id });
 
         // Assert
         const expected = {
@@ -289,11 +275,14 @@ describe("playlist:select", () => {
     });
 
     it.each([
-        { case: "the item already playing", index: 0, ended: false },
-        { case: "an index past the end", index: 2, ended: false },
-        { case: "a negative index", index: -1, ended: false },
-        { case: "the last item once the playlist has ended", index: 1, ended: true }
-    ])("ignores selecting $case", async ({ index, ended }) => {
+        { case: "the item already playing", payload: (ids: string[]) => ({ itemId: ids[0] }), ended: false },
+        { case: "an unknown itemId", payload: () => ({ itemId: "no-such-item" }), ended: false },
+        { case: "a non-string itemId", payload: () => ({ itemId: 1 }), ended: false },
+        { case: "no itemId", payload: () => ({}), ended: false },
+        { case: "an index in place of an itemId", payload: () => ({ index: 1 }), ended: false },
+        { case: "an index of \"length\"", payload: () => ({ index: "length" }), ended: false },
+        { case: "the last item once the playlist has ended", payload: (ids: string[]) => ({ itemId: ids[1] }), ended: true }
+    ])("ignores selecting $case", async ({ payload, ended }) => {
         // Arrange: A is playing with B queued, or both have played to the end
         const room = await setupRoom(server.url);
         await startItem(room, VIDEO_A);
@@ -302,7 +291,7 @@ describe("playlist:select", () => {
         const hostEvents = recordEvents(room.host);
 
         // Act
-        room.host.emit("playlist:select", { roomId: room.roomId, index });
+        room.host.emit("playlist:select", { roomId: room.roomId, ...payload(queued.items.map(entry => entry.id)) });
         await chatBarrier(room.host, room.roomId);
 
         // Assert
@@ -317,7 +306,7 @@ describe("playlist:select", () => {
         await next(room, (await next(room, queued))[0]);
 
         // Act
-        const { playlist: [state], video: started } = await select(room, 0);
+        const { playlist: [state], video: started } = await select(room, queued.items[0]!.id);
 
         // Assert
         const expected = expect.objectContaining({ itemId: queued.items[0]!.id, videoUrl: VIDEO_A, currentTime: 0, isPlaying: true });
@@ -332,7 +321,7 @@ describe("playlist:select", () => {
         const [queued] = await addItem(room, VIDEO_A);
 
         // Act
-        const { video: [restarted] } = await select(room, 1);
+        const { video: [restarted] } = await select(room, queued.items[1]!.id);
 
         // Assert
         expect(restarted).toMatchObject({ itemId: queued.items[1]!.id, videoUrl: VIDEO_A, currentTime: 0, isPlaying: true });
@@ -341,57 +330,61 @@ describe("playlist:select", () => {
 });
 
 
-describe("eventId guard", () => {
-    it("drops a stale eventId but applies payloads without one, as the frontend sends them", async () => {
+describe("eventId on add and select", () => {
+    it("applies an add that carries a stale eventId, since an add takes none", async () => {
         // Arrange: the server is at eventId 2
         const room = await setupRoom(server.url);
         await startItem(room, VIDEO_A);
         await addItem(room, VIDEO_B);
-
-        // Act: a stale select, then a frontend-style add as the ordering barrier
-        const synced = await collectBroadcast<PlaylistState>([room.host, room.guest], "playlist:sync", () => {
-            room.host.emit("playlist:select", { roomId: room.roomId, index: 1, eventId: 1 });
-            room.host.emit("playlist:add", { roomId: room.roomId, videoUrl: VIDEO_C, videoService: "youtube" });
-        });
-
-        // Assert: the first sync is the add, so the stale select changed nothing
-        const expected = {
-            eventId: 3,
-            items: [item(VIDEO_A, room.hostUser), item(VIDEO_B, room.hostUser), item(VIDEO_C, room.hostUser)],
-            currentIndex: 0,
-            isLooping: false
-        };
-        expect(synced).toEqual([expected, expected]);
-    });
-
-    it("drops an add with a stale eventId", async () => {
-        // Arrange: the server is at eventId 2
-        const room = await setupRoom(server.url);
-        await startItem(room, VIDEO_A);
-        await addItem(room, VIDEO_B);
-
-        // Act: a stale add, then a frontend-style add as the ordering barrier
-        const synced = await collectBroadcast<PlaylistState>([room.host, room.guest], "playlist:sync", () => {
-            room.host.emit("playlist:add", { roomId: room.roomId, videoUrl: VIDEO_C, videoService: "youtube", eventId: 1 });
-            room.host.emit("playlist:add", { roomId: room.roomId, videoUrl: VIDEO_A, videoService: "youtube" });
-        });
-
-        // Assert
-        expect(synced[0].items.map(entry => entry.videoUrl)).toEqual([VIDEO_A, VIDEO_B, VIDEO_A]);
-    });
-
-    it("applies an add and a select sent at the server's current eventId", async () => {
-        // Arrange: the server is at eventId 1
-        const room = await setupRoom(server.url);
-        await startItem(room, VIDEO_A);
 
         // Act
-        const [added] = await playlistSync(room, "playlist:add", { videoUrl: VIDEO_B, videoService: "youtube", eventId: 1 });
-        const { playlist: [selected] } = await select(room, 1, added.eventId);
+        const [added] = await playlistSync(room, "playlist:add", { videoUrl: VIDEO_C, videoService: "youtube", eventId: 1 });
 
         // Assert
-        expect(added).toMatchObject({ eventId: 2, items: [{ videoUrl: VIDEO_A }, { videoUrl: VIDEO_B }] });
+        expect(added).toMatchObject({ eventId: 3, items: [{ videoUrl: VIDEO_A }, { videoUrl: VIDEO_B }, { videoUrl: VIDEO_C }] });
+    });
+
+    it("applies a select that carries a stale eventId, since a select takes none", async () => {
+        // Arrange: the server is at eventId 2
+        const room = await setupRoom(server.url);
+        await startItem(room, VIDEO_A);
+        const [queued] = await addItem(room, VIDEO_B);
+
+        // Act
+        const [selected] = await playlistSync(room, "playlist:select", { itemId: queued.items[1]!.id, eventId: 1 });
+
+        // Assert
         expect(selected).toMatchObject({ eventId: 3, currentIndex: 1 });
+    });
+});
+
+
+describe("playlist events from a socket that is not in the room", () => {
+    it.each([
+        { event: "playlist:add", payload: () => ({ videoUrl: VIDEO_C, videoService: "youtube" }) },
+        { event: "playlist:next", payload: (ids: string[]) => ({ itemId: ids[0] }) },
+        { event: "playlist:select", payload: (ids: string[]) => ({ itemId: ids[1] }) }
+    ].flatMap(entry => [
+        { ...entry, who: "a socket that never joined a room", joinsAnotherRoom: false },
+        { ...entry, who: "a member of another room", joinsAnotherRoom: true }
+    ]))("ignores $event from $who", async ({ event, payload, joinsAnotherRoom }) => {
+        // Arrange: A is playing with B queued
+        const room = await setupRoom(server.url);
+        await startItem(room, VIDEO_A);
+        const [queued] = await addItem(room, VIDEO_B);
+        const otherRoomId = await createRoom(server.url);
+        const outsider = await connectClient(server.url);
+        if (joinsAnotherRoom) await joinRoom(outsider, otherRoomId, testUser("Outsider"));
+        const hostEvents = recordEvents(room.host);
+
+        // Act: a join, or a barrier in its own room, orders the outsider's traffic: the server has handled the event
+        outsider.emit(event, { roomId: room.roomId, ...payload(queued.items.map(entry => entry.id)) });
+        if (joinsAnotherRoom) await chatBarrier(outsider, otherRoomId);
+        else await joinRoom(outsider, otherRoomId, testUser("Outsider"));
+        await chatBarrier(room.host, room.roomId);
+
+        // Assert
+        expect(hostEvents).toEqual(["chat:sync"]);
     });
 });
 

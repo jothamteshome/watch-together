@@ -4,13 +4,24 @@ function toSafeNumber(n: number | null | undefined): number {
 }
 
 
+// Largest first
+const COUNT_UNITS = [
+    { size: 1_000_000_000, suffix: "B" },
+    { size: 1_000_000, suffix: "M" },
+    { size: 1_000, suffix: "K" }
+];
+
+
 export function formatCount(n: number | null | undefined, precision: number): string {
     const safeN = toSafeNumber(n);
 
-    if (safeN >= 1_000_000_000) return `${(safeN / 1_000_000_000).toFixed(precision).replace(/\.0$/, "")}B`;
-    if (safeN >= 1_000_000) return `${(safeN / 1_000_000).toFixed(precision).replace(/\.0$/, "")}M`;
-    if (safeN >= 1_000) return `${(safeN / 1_000).toFixed(precision).replace(/\.0$/, "")}K`;
-    return String(safeN);
+    const index = COUNT_UNITS.findIndex(({ size }) => safeN >= size);
+    if (index === -1) return String(safeN);
+
+    // A count that would round up to 1000 of its unit (999_999 as "1000K") reads better in the next one up
+    const rounded = Number((safeN / COUNT_UNITS[index]!.size).toFixed(precision));
+    const { size, suffix } = rounded >= 1000 && index > 0 ? COUNT_UNITS[index - 1]! : COUNT_UNITS[index]!;
+    return `${(safeN / size).toFixed(precision).replace(/\.0$/, "")}${suffix}`;
 }
 
 
@@ -50,10 +61,17 @@ export function formatRelativeDate(timestamp: number | null | undefined): string
     }
 
 
+    // Whole calendar months: the difference in month fields, less one if `now` hasn't reached the day and time
+    // that `then` had in its month. Without that, 2h across New Year would read as a year.
+    const startOfMonth = (date: Date) => Date.UTC(date.getUTCFullYear(), date.getUTCMonth());
+    let months = (now.getUTCFullYear() - then.getUTCFullYear()) * 12 + (now.getUTCMonth() - then.getUTCMonth());
+    if (now.getTime() - startOfMonth(now) < then.getTime() - startOfMonth(then)) months--;
+
+
     // Store value for timedelta experienced
     const timeDeltaMap = {
-        YEARS: now.getUTCFullYear() - then.getUTCFullYear(),
-        MONTHS: (now.getUTCMonth() - then.getUTCMonth()) + (now.getUTCFullYear() - then.getUTCFullYear()) * 12,
+        YEARS: Math.floor(months / 12),
+        MONTHS: months,
         WEEKS: Math.floor(seconds / secondsInUnit.WEEK),
         DAYS: Math.floor(seconds / secondsInUnit.DAY),
         HOURS: Math.floor(seconds / secondsInUnit.HOUR),
