@@ -7,8 +7,6 @@ import { logger } from "../utils/logger.js";
 import type { RoomJoinEvent } from "@shared/interfaces/RoomEvents";
 import type User from "@shared/interfaces/User";
 
-const ROOM_EMPTY_DELETE_DELAY_MS = 1000 * 60 * 60; // 1 hour
-
 
 /** The joining user comes from the client, so check its shape before storing it */
 function isUser(user: unknown): user is User {
@@ -117,12 +115,7 @@ function disconnectCleanup(socket: Socket, roomId: string, roomState?: RoomState
 
   // If users list for room is empty, schedule the room for deletion. addUser()
   // cancels this automatically if someone rejoins before it fires.
-  if (roomState.getUserCount() === 0) {
-    roomState.scheduleDeletion(() => {
-      serverManager.serverRooms.delete(roomId);
-      logger.info({ roomId }, "Room deleted because it is empty");
-    }, ROOM_EMPTY_DELETE_DELAY_MS);
-  }
+  if (roomState.getUserCount() === 0) serverManager.scheduleRoomDeletion(roomId);
 
   return userLeftRoom;
 }

@@ -313,9 +313,7 @@ describe("room:leave", () => {
 
 
 describe("room creation", () => {
-    // Known bug: deletion is only scheduled when the last member leaves, so a room nobody ever joins
-    // is kept forever. This asserts the intended behaviour; remove .fails once fixed.
-    it.fails("deletes a room that nobody joins within an hour", async () => {
+    it("deletes a room that nobody joins within an hour", async () => {
         // Arrange
         vi.useFakeTimers({ toFake: ["setTimeout"] });
         const roomId = await createRoom(server.url);

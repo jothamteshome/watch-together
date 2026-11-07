@@ -1,7 +1,10 @@
 import RoomState from "./RoomState.js";
+import { logger } from "../utils/logger.js";
 import type User from "@shared/interfaces/User";
 import type { UserUpdateEvent } from "@shared/interfaces/UserEvents";
 import type { VideoInfo } from "@shared/interfaces/VideoInfo";
+
+const ROOM_EMPTY_DELETE_DELAY_MS = 1000 * 60 * 60; // 1 hour
 
 
 class ServerManager {
@@ -14,6 +17,19 @@ class ServerManager {
 
     public createRoom(roomId: string) {
         serverManager.serverRooms.set(roomId, new RoomState());
+        this.scheduleRoomDeletion(roomId);
+    }
+
+
+    /**
+     * Schedules an empty room for deletion. RoomState.addUser() cancels this when someone
+     * joins, so it only fires for a room nobody ever joined or that has since emptied.
+     */
+    public scheduleRoomDeletion(roomId: string): void {
+        this.serverRooms.get(roomId)?.scheduleDeletion(() => {
+            this.serverRooms.delete(roomId);
+            logger.info({ roomId }, "Room deleted because it is empty");
+        }, ROOM_EMPTY_DELETE_DELAY_MS);
     }
 
 
