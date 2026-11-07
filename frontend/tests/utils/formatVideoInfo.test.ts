@@ -41,13 +41,11 @@ describe("formatCount", () => {
         expect(formatted).toBe("0");
     });
 
-    // Known bug: a count that rounds up to 1000 of a unit stays in that unit ("1000K") instead of
-    // moving to the next one. This asserts the intended behaviour; remove .fails once fixed.
-    it.fails.each([
+    it.each([
         { n: 999_999, precision: 1, expected: "1M" },
         { n: 999_500, precision: 0, expected: "1M" },
         { n: 999_999_999, precision: 1, expected: "1B" }
-    ])("BUG B5: formats $n at precision $precision as $expected, not 1000 of the smaller unit", ({ n, precision, expected }) => {
+    ])("formats $n at precision $precision as $expected, not 1000 of the smaller unit", ({ n, precision, expected }) => {
         // Act
         const formatted = formatCount(n, precision);
 
