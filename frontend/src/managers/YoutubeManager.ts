@@ -149,8 +149,11 @@ export default class YoutubeManager extends BaseVideoManager {
         }
 
         if (isPlaying && this.player.getPlayerState() !== YT.PlayerState.PLAYING) {
-            // If the browser blocks this play too, the PAUSED it fires isn't the user pausing, as after a blocked load
+            // If the browser blocks this play too, the PAUSED it fires isn't the user pausing, as after a blocked load.
+            // Its first PLAYING then has to catch up to this state, even if an earlier pause cleared the anchor
             this.suppressNextPause = true;
+            this.loadedServerTime = currentTime;
+            this.loadedLocalTime = Date.now();
             this.player.playVideo();
         } else if (!isPlaying && this.player.getPlayerState() !== YT.PlayerState.PAUSED) {
             this.player.pauseVideo();
@@ -196,11 +199,12 @@ export default class YoutubeManager extends BaseVideoManager {
         if (event.data === YT.PlayerState.PLAYING) {
             this.suppressNextPause = false;
 
-            // First PLAYING after our own load (autoplay, or a click after an autoplay block):
+            // First PLAYING after our own load or a server play (autoplay, or a click after an autoplay block):
             // catch up to the server's time locally. The server already has this state.
             if (this.loadedServerTime !== null && this.loadedLocalTime !== null) {
                 const elapsed = (Date.now() - this.loadedLocalTime) / 1000;
-                this.player!.seekTo(this.loadedServerTime + elapsed, true);
+                const target = this.loadedServerTime + elapsed;
+                if (Math.abs(time - target) > this.driftThreshold) this.player!.seekTo(target, true);
                 this.loadedServerTime = null;
                 this.loadedLocalTime = null;
                 return;

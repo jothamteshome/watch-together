@@ -220,6 +220,41 @@ describe("autoplay block", () => {
         expect(socket.emitted("video:play")).toEqual([{ roomId: ROOM_ID, time: 50, eventId: 8, playbackRate: 1 }]);
     });
 
+    it("catches up to a play that arrived while blocked even after a pause in between", () => {
+        // Arrange: loaded at 30s and blocked; the room pauses at 50s, then plays again from 60s, which the browser blocks too
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 30, eventId: 7 }));
+        player.changeState(PlayerState.PAUSED);
+        manager.sync(videoState({ currentTime: 50, isPlaying: false, eventId: 8 }));
+        vi.setSystemTime(T0 + 1000);
+        manager.sync(videoState({ currentTime: 60, eventId: 9 }));
+        player.changeState(PlayerState.PAUSED);
+        player.seekTo.mockClear();
+
+        // Act: the room kept playing, and the user clicks play 10s after the sync
+        vi.setSystemTime(T0 + 11_000);
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert: the click follows the room instead of sending the 60s this player was parked at
+        expect(player.seekTo).toHaveBeenCalledExactlyOnceWith(70, true);
+        expect(socket.emitted("video:play")).toEqual([]);
+    });
+
+    it("doesn't seek when the play a sync asked for goes through at once", () => {
+        // Arrange: a paused room, cued at 10s
+        const { manager, player } = createReadyManager();
+        manager.loadVideo(VIDEO_A, videoState({ currentTime: 10, eventId: 7, isPlaying: false }));
+
+        // Act: the room plays, and the player starts straight away
+        manager.sync(videoState({ currentTime: 10, eventId: 8 }));
+        vi.setSystemTime(T0 + 200);
+        player.changeState(PlayerState.PLAYING);
+
+        // Assert
+        expect(player.seekTo).not.toHaveBeenCalled();
+        expect(socket.emitted("video:play")).toEqual([]);
+    });
+
     it("doesn't pause the room when the browser blocks the play a server sync asks for", () => {
         // Arrange: loaded at 30s and blocked, then another tab acts before the user clicks play here
         const { manager, player } = createReadyManager();
