@@ -66,7 +66,7 @@ export default function PlaylistVideo({ item, watching, index, onVideoSelect, re
             }
             <PlaylistVideoThumbnail thumbnail={videoData.thumbnail} />
             <PlaylistVideoInfo title={videoData.title} channelName={videoData.channelName} fallback={item.videoUrl} />
-            <div className="ml-auto mr-2 w-5 shrink-0 self-center" title={`Added by ${item.addedBy.username}`}>
+            <div className="ml-auto mr-2 w-5 shrink-0 self-center rounded-full border border-white" title={`Added by ${item.addedBy.username}`}>
                 <UserIcon src={item.addedBy.icon} />
             </div>
         </div>
