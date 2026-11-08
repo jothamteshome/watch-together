@@ -36,6 +36,19 @@ describe("OnlineUsersButton", () => {
         expect(screen.getByText(/^OtherUser/).textContent).toBe("OtherUser");
     });
 
+    it("rings every listed user in green, since they are all in the room", async () => {
+        // Arrange
+        render(<OnlineUsersButton users={[SELF_USER, OTHER_USER]} selfUserId={SELF_USER.id} />);
+
+        // Act
+        await userEvent.click(usersButton());
+
+        // Assert
+        const rings = screen.getAllByRole("img").map((img) => img.closest(".border-green-500"));
+        expect(rings).toHaveLength(2);
+        expect(rings.every(Boolean)).toBe(true);
+    });
+
     it("closes on a click outside it", async () => {
         // Arrange
         const user = userEvent.setup();

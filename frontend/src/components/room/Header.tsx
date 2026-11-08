@@ -1,4 +1,4 @@
-import type { ChangeEvent } from "react";
+import { useMemo, type ChangeEvent } from "react";
 import RoomInfo from "./RoomInfo";
 import SearchBar from "./SearchBar";
 import ChatButton from "../chat/ChatButton";
@@ -37,6 +37,9 @@ export default function Header({
     users,
     updateProfile,
 }: HeaderProps) {
+    // Ids rather than users, so a renamed author in the chat still matches
+    const onlineUserIds = useMemo(() => new Set(users.map((u) => u.id)), [users]);
+
     return (
         <div className="w-full flex items-center justify-between gap-4 p-4">
             <RoomInfo roomId={roomId} />
@@ -45,6 +48,7 @@ export default function Header({
                 <OnlineUsersButton users={users} selfUserId={user?.id} />
                 <ChatButton
                     messages={chatMessages}
+                    onlineUserIds={onlineUserIds}
                     notifications={chatNotifications}
                     clearNotifications={clearChatNotifications}
                     sendMessage={sendChatMessage}
