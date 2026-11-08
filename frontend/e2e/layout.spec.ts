@@ -186,3 +186,36 @@ test.describe("chat layout", () => {
         await expect(page.getByText("message 1", { exact: true })).not.toBeInViewport();
     });
 });
+
+
+test.describe("home layout", () => {
+    test("the profile menu sits at the top right and the room controls below it, without horizontal scroll", async ({ page }) => {
+        // Act
+        await page.goto("/");
+        const menu = page.getByTitle("Edit Profile");
+        await expect(menu).toBeVisible();
+
+        // Assert
+        const [menuBox, createBox] = [await boxOf(menu), await boxOf(page.getByRole("button", { name: "Create Room" }))];
+        const viewport = page.viewportSize()!;
+        expect(menuBox.x + menuBox.width).toBeGreaterThan(viewport.width - 32);
+        expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(viewport.width);
+        expect(createBox.y).toBeGreaterThanOrEqual(menuBox.y + menuBox.height);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    });
+
+    test("the open profile menu fits inside the viewport", async ({ page }) => {
+        // Arrange
+        await page.goto("/");
+
+        // Act
+        await page.getByTitle("Edit Profile").click();
+
+        // Assert
+        const panel = await boxOf(page.getByRole("textbox", { name: "Name" }).locator("xpath=../.."));
+        const viewport = page.viewportSize()!;
+        expect(panel.x).toBeGreaterThanOrEqual(0);
+        expect(panel.x + panel.width).toBeLessThanOrEqual(viewport.width);
+        expect(panel.y + panel.height).toBeLessThanOrEqual(viewport.height);
+    });
+});

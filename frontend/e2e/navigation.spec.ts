@@ -57,3 +57,20 @@ test("an unknown room shows Room Not Found, then returns home after the countdow
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole("button", { name: "Create Room" })).toBeVisible();
 });
+
+
+test("a rename on the homepage is the name the user joins a room with", async ({ page }) => {
+    // Arrange
+    await page.goto("/");
+    await page.getByTitle("Edit Profile").click();
+    await page.getByRole("textbox", { name: "Name" }).fill("Home Guest");
+    await page.getByRole("button", { name: "Save" }).click();
+
+    // Act
+    await page.getByRole("button", { name: "Create Room" }).click();
+    await expect(page.getByPlaceholder("Enter a url...")).toBeVisible();
+
+    // Assert
+    await page.getByTitle("Online Users").click();
+    await expect(page.getByRole("listitem").filter({ hasText: "Home Guest (you)" })).toBeVisible();
+});
