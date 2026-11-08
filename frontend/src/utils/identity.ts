@@ -1,10 +1,24 @@
 import type User from "@shared/interfaces/User";
+import type { UserUpdateEvent } from "@shared/interfaces/UserEvents";
 
 const PROFILE_STORAGE_KEY = "watch-together:profile";
+
+// Keep in sync with the icon URL in backend/src/utils/generateUser.ts
+export const GENERATED_ICON_PREFIX = "https://api.dicebear.com/7.x/identicon/svg?seed=";
 
 async function fetchGeneratedUser(): Promise<User> {
     const response = await fetch(`${import.meta.env.VITE_APP_BACKEND_URL}/v1/users/generate`);
     return response.json();
+}
+
+/**
+ * The profile changes for renaming `user`. A generated icon is seeded by the username, so it follows
+ * the rename; any other icon is left alone.
+ */
+export function renameChanges(user: User, username: string): UserUpdateEvent {
+    if (!user.icon.startsWith(GENERATED_ICON_PREFIX)) return { username };
+
+    return { username, icon: GENERATED_ICON_PREFIX + encodeURIComponent(username) };
 }
 
 /**

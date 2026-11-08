@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getOrCreateProfile, saveProfile } from "../../src/utils/identity";
+import { GENERATED_ICON_PREFIX, getOrCreateProfile, renameChanges, saveProfile } from "../../src/utils/identity";
 import { BACKEND_URL, OTHER_USER, SELF_USER, seedProfile, stubFetch } from "../support/helpers";
 
 
@@ -75,5 +75,26 @@ describe("saveProfile", () => {
 
         // Act + Assert
         expect(() => saveProfile(SELF_USER)).not.toThrow();
+    });
+});
+
+describe("renameChanges", () => {
+    it("moves a generated icon to the new name, encoding it for the URL", () => {
+        // Arrange
+        const user = { ...SELF_USER, icon: `${GENERATED_ICON_PREFIX}OldName` };
+
+        // Act
+        const changes = renameChanges(user, "New Name & Co");
+
+        // Assert
+        expect(changes).toEqual({ username: "New Name & Co", icon: `${GENERATED_ICON_PREFIX}New%20Name%20%26%20Co` });
+    });
+
+    it("leaves a custom icon alone, sending only the name", () => {
+        // Act
+        const changes = renameChanges(SELF_USER, "New Name");
+
+        // Assert
+        expect(changes).toEqual({ username: "New Name" });
     });
 });

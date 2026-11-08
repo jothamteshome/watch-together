@@ -1,6 +1,7 @@
 import { useRef, useState, type SubmitEvent } from "react";
 import UserIcon from "./UserIcon";
 import useClickOutside from "../../hooks/useClickOutside";
+import { renameChanges } from "../../utils/identity";
 import type User from "@shared/interfaces/User";
 import type { UserUpdateEvent } from "@shared/interfaces/UserEvents";
 
@@ -37,7 +38,7 @@ export default function UserMenu({ user, onUpdate }: UserMenuProps) {
         e.preventDefault();
         if (!canSave) return;
 
-        onUpdate({ username: trimmedName });
+        onUpdate(renameChanges(user, trimmedName));
         setIsOpen(false);
     };
 

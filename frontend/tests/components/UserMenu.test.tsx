@@ -2,12 +2,13 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import UserMenu from "../../src/components/user/UserMenu";
+import { GENERATED_ICON_PREFIX } from "../../src/utils/identity";
 import { SELF_USER } from "../support/helpers";
 
 
-function renderMenu() {
+function renderMenu(profile = SELF_USER) {
     const onUpdate = vi.fn();
-    render(<UserMenu user={SELF_USER} onUpdate={onUpdate} />);
+    render(<UserMenu user={profile} onUpdate={onUpdate} />);
     return { onUpdate, user: userEvent.setup() };
 }
 
@@ -38,6 +39,20 @@ describe("UserMenu", () => {
         // Assert
         expect(onUpdate).toHaveBeenCalledExactlyOnceWith({ username: "New Name" });
         expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull();
+    });
+
+    it("sends a new generated icon along with the name when the current icon is generated", async () => {
+        // Arrange
+        const { onUpdate, user } = renderMenu({ ...SELF_USER, icon: `${GENERATED_ICON_PREFIX}${SELF_USER.username}` });
+        await user.click(menuButton());
+
+        // Act
+        await user.clear(nameInput());
+        await user.type(nameInput(), "New Name");
+        await user.click(saveButton());
+
+        // Assert
+        expect(onUpdate).toHaveBeenCalledExactlyOnceWith({ username: "New Name", icon: `${GENERATED_ICON_PREFIX}New%20Name` });
     });
 
     it.each([
