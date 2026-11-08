@@ -1,9 +1,9 @@
 import { useMemo, type ChangeEvent } from "react";
+import AppHeader from "../common/AppHeader";
 import RoomInfo from "./RoomInfo";
 import SearchBar from "./SearchBar";
 import ChatButton from "../chat/ChatButton";
 import OnlineUsersButton from "../user/OnlineUsersButton";
-import UserMenu from "../user/UserMenu";
 import type ChatMessage from "@shared/interfaces/ChatMessage";
 import type User from "@shared/interfaces/User";
 import type { UserUpdateEvent } from "@shared/interfaces/UserEvents";
@@ -41,21 +41,25 @@ export default function Header({
     const onlineUserIds = useMemo(() => new Set(users.map((u) => u.id)), [users]);
 
     return (
-        <div className="w-full flex items-center justify-between gap-4 p-4">
+        <AppHeader
+            user={user}
+            onUpdateProfile={updateProfile}
+            actions={
+                <>
+                    <OnlineUsersButton users={users} selfUserId={user?.id} />
+                    <ChatButton
+                        messages={chatMessages}
+                        onlineUserIds={onlineUserIds}
+                        notifications={chatNotifications}
+                        clearNotifications={clearChatNotifications}
+                        sendMessage={sendChatMessage}
+                        onOpenChange={onChatOpenChange}
+                    />
+                </>
+            }
+        >
             <RoomInfo roomId={roomId} />
             <SearchBar onChange={onSearchChange} onClick={onSearchSubmit} />
-            <div className="flex items-center gap-1 shrink-0">
-                <OnlineUsersButton users={users} selfUserId={user?.id} />
-                <ChatButton
-                    messages={chatMessages}
-                    onlineUserIds={onlineUserIds}
-                    notifications={chatNotifications}
-                    clearNotifications={clearChatNotifications}
-                    sendMessage={sendChatMessage}
-                    onOpenChange={onChatOpenChange}
-                />
-                {user && <UserMenu user={user} onUpdate={updateProfile} />}
-            </div>
-        </div>
+        </AppHeader>
     );
 }
