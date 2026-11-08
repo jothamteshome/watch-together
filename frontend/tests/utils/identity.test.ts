@@ -37,6 +37,33 @@ describe("getOrCreateProfile", () => {
         expect(storedProfile()).toEqual(OTHER_USER);
     });
 
+    it("fetches once when called again before the first call finishes, and both get the same profile", async () => {
+        // Arrange
+        const fetchMock = stubFetch({ "/v1/users/generate": { body: OTHER_USER } });
+
+        // Act
+        const [first, second] = await Promise.all([getOrCreateProfile(), getOrCreateProfile()]);
+
+        // Assert
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(second).toBe(first);
+        expect(storedProfile()).toEqual(first);
+    });
+
+    it("fetches again on the next call when the fetch failed", async () => {
+        // Arrange
+        stubFetch({ "/v1/users/generate": new Error("offline") });
+        await expect(getOrCreateProfile()).rejects.toThrow("offline");
+        const fetchMock = stubFetch({ "/v1/users/generate": { body: OTHER_USER } });
+
+        // Act
+        const profile = await getOrCreateProfile();
+
+        // Assert
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(profile).toEqual(OTHER_USER);
+    });
+
     it.each([
         {
             case: "storage is unavailable",
