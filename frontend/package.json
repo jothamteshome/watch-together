@@ -38,7 +38,7 @@
     "@types/react-dom": "^19.1.7",
     "@types/youtube": "^0.1.2",
     "@vitejs/plugin-react-swc": "^4.0.0",
-    "@vitest/coverage-v8": "^4.1.12",
+    "@vitest/coverage-v8": "^5.1.0",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.33.0",
     "eslint-plugin-react-hooks": "^5.2.0",
@@ -50,7 +50,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.39.1",
     "vite": "^7.1.2",
-    "vitest": "^4.1.12"
+    "vitest": "^5.1.0"
   },
   "overrides": {
     "qs": "^6.17.1",
