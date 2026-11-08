@@ -15,11 +15,16 @@ import RoomManager from "../managers/RoomManager";
 import { checkRoomExists } from "../services/room";
 
 
+/** Keyed by the room id, so a different room starts with fresh state instead of resetting it by hand */
 export default function RoomPage() {
-  const params = useParams();
-  const roomId = params.roomId;
+  const { roomId } = useParams();
+  return <Room key={roomId} roomId={roomId} />;
+}
+
+
+function Room({ roomId }: { roomId: string | undefined }) {
   const roomManagerRef = useRef<RoomManager | null>(null);
-  const [roomStatus, setRoomStatus] = useState<"loading" | "found" | "not-found">("loading");
+  const [roomStatus, setRoomStatus] = useState<"loading" | "found" | "not-found">(roomId ? "loading" : "not-found");
   const [url, setUrl] = useState("");
   const [currentService, setCurrentService] = useState<VideoService | undefined>();
   const [videoInfo, setVideoInfo] = useState<VideoInfo | undefined>();
@@ -36,12 +41,7 @@ export default function RoomPage() {
   const isChatOpenRef = useRef(false);
 
   useEffect(() => {
-    setRoomStatus("loading");
-
-    if (!roomId) {
-      setRoomStatus("not-found");
-      return;
-    }
+    if (!roomId) return;
 
     let cancelled = false;
 
