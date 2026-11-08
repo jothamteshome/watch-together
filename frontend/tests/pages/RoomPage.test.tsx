@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { VideoState } from "@shared/interfaces/States";
 import RoomPage from "../../src/pages/RoomPage";
@@ -326,5 +326,35 @@ describe("missing room", () => {
         expect(await screen.findByText("Room Not Found")).toBeTruthy();
         expect(socket.connect).not.toHaveBeenCalled();
         expect(socket.emitted("room:join")).toEqual([]);
+    });
+});
+
+
+describe("switching rooms", () => {
+    it("starts the next room empty instead of keeping the previous room's playlist", async () => {
+        // Arrange
+        const otherRoomId = "room5678";
+        stubBackend({ [`/v1/rooms/${otherRoomId}`]: { body: videoState({ videoUrl: null }) } });
+        render(
+            <MemoryRouter initialEntries={[`/room/${ROOM_ID}`]}>
+                <Link to={`/room/${otherRoomId}`}>Go to the other room</Link>
+                <Routes>
+                    <Route path="/room/:roomId" element={<RoomPage />} />
+                </Routes>
+            </MemoryRouter>
+        );
+        await screen.findByPlaceholderText("Enter a url...");
+        await waitFor(() => expect(socket.emitted("room:join")).toEqual([{ roomId: ROOM_ID, user: SELF_USER }]));
+        await deliver("playlist:sync", playlistState({ eventId: 1, items: [playlistItem(VIDEO_A)], currentIndex: 0 }));
+        await screen.findByTitle("Video A");
+        const user = userEvent.setup();
+
+        // Act
+        await user.click(screen.getByText("Go to the other room"));
+        await screen.findByPlaceholderText("Enter a url...");
+        await waitFor(() => expect(socket.emitted("room:join")).toContainEqual({ roomId: otherRoomId, user: SELF_USER }));
+
+        // Assert
+        expect(screen.queryByTitle("Video A")).toBeNull();
     });
 });
