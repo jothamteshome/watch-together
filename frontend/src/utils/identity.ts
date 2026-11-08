@@ -1,10 +1,27 @@
 import type User from "@shared/interfaces/User";
+import type { UserUpdateEvent } from "@shared/interfaces/UserEvents";
 
 const PROFILE_STORAGE_KEY = "watch-together:profile";
+
+// Keep in sync with the icon URL in backend/src/utils/generateUser.ts
+export const GENERATED_ICON_PREFIX = "https://api.dicebear.com/7.x/identicon/svg?seed=";
 
 async function fetchGeneratedUser(): Promise<User> {
     const response = await fetch(`${import.meta.env.VITE_APP_BACKEND_URL}/v1/users/generate`);
     return response.json();
+}
+
+// Shared by concurrent callers, so only one generated profile is created, stored and shown
+let generating: Promise<User> | null = null;
+
+/**
+ * The profile changes for renaming `user`. A generated icon is seeded by the username, so it follows
+ * the rename; any other icon is left alone.
+ */
+export function renameChanges(user: User, username: string): UserUpdateEvent {
+    if (!user.icon.startsWith(GENERATED_ICON_PREFIX)) return { username };
+
+    return { username, icon: GENERATED_ICON_PREFIX + encodeURIComponent(username) };
 }
 
 /**
@@ -20,7 +37,7 @@ export function saveProfile(profile: User): void {
 
 /**
  * Returns this browser's persisted profile, generating and storing a random
- * one (via the backend) the first time it's needed.
+ * one (via the backend) the first time it's needed. Calls made while that is in flight share it.
  */
 export async function getOrCreateProfile(): Promise<User> {
     try {
@@ -30,8 +47,12 @@ export async function getOrCreateProfile(): Promise<User> {
         // localStorage unavailable (e.g. private browsing) — fall through to generating a fresh profile
     }
 
-    const profile: User = await fetchGeneratedUser();
-    saveProfile(profile);
+    generating ??= fetchGeneratedUser()
+        .then((profile) => {
+            saveProfile(profile);
+            return profile;
+        })
+        .finally(() => { generating = null; });
 
-    return profile;
+    return generating;
 }

@@ -30,6 +30,7 @@ interface ContentColumnProps {
 
 interface IconColumnProps {
     authorIcon?: string;
+    isOnline: boolean;
     showHeader: boolean;
 }
 
@@ -38,6 +39,7 @@ interface ChatMessageProps {
     ref: React.RefObject<HTMLDivElement | null> | null;
     message: ChatMessage;
     showHeader: boolean;
+    onlineUserIds: Set<string>;
 }
 
 
@@ -87,18 +89,28 @@ function ContentColumn({ author, timestamp, messageText, showHeader }: ContentCo
 }
 
 
-function IconColumn({ authorIcon, showHeader }: IconColumnProps) {
+/**
+ * The ring says whether the author is still in the room: green if so, otherwise gray and dimmed,
+ * so the state does not rely on colour alone.
+ */
+function IconColumn({ authorIcon, isOnline, showHeader }: IconColumnProps) {
+    const ringStyle = isOnline ? "border-green-500" : "border-neutral-300 opacity-60";
+
     return (
         <div className="w-10 h-full mx-2">
             {
-                showHeader && authorIcon && <UserIcon src={authorIcon} />
+                showHeader && authorIcon && (
+                    <div className={`rounded-full border-2 ${ringStyle}`} title={isOnline ? "In the room" : "Not in the room"}>
+                        <UserIcon src={authorIcon} />
+                    </div>
+                )
             }
         </div>
     );
 }
 
 
-export default function Message({ message, ref, showHeader }: ChatMessageProps) {
+export default function Message({ message, ref, showHeader, onlineUserIds }: ChatMessageProps) {
     // System messages are about a real user (msg.user) and render as a small centered note
     if (message.systemEvent) {
         return (
@@ -116,7 +128,7 @@ export default function Message({ message, ref, showHeader }: ChatMessageProps) 
 
     return (
         <div ref={ref} className={`w-full flex ${spacingStyle}`}>
-            <IconColumn authorIcon={message.user.icon} showHeader={showHeader} />
+            <IconColumn authorIcon={message.user.icon} isOnline={onlineUserIds.has(message.user.id)} showHeader={showHeader} />
             <ContentColumn author={message.user.username} timestamp={message.timestamp} messageText={message.text ?? ""} showHeader={showHeader} />
         </div>
     );

@@ -5,6 +5,7 @@ import type ChatMessage from "@shared/interfaces/ChatMessage";
 
 interface MessageDisplayProps {
     messages: ChatMessage[];
+    onlineUserIds: Set<string>;
 }
 
 
@@ -12,7 +13,7 @@ interface MessageDisplayProps {
 const GROUP_TIME_THRESHOLD_MS = 5 * 60 * 1000;
 
 
-export default function MessageDisplay({ messages }: MessageDisplayProps) {
+export default function MessageDisplay({ messages, onlineUserIds }: MessageDisplayProps) {
     const lastMessageRef = useRef<HTMLDivElement | null>(null);
     const isFirstRender = useRef(true);
 
@@ -40,6 +41,7 @@ export default function MessageDisplay({ messages }: MessageDisplayProps) {
                             key={message.id}
                             message={message}
                             showHeader={showHeader}
+                            onlineUserIds={onlineUserIds}
                         />
                     );
                 })

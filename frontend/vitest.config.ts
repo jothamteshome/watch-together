@@ -11,7 +11,7 @@ export default mergeConfig(viteConfig, defineConfig({
       include: ['src/**'],
       reporter: ['html', 'text-summary'],
       // The levels reached after the feature merge; raise them as coverage grows
-      thresholds: { statements: 88, branches: 76, functions: 84, lines: 91 },
+      thresholds: { statements: 88, branches: 76, functions: 85, lines: 92 },
     },
   },
 }))

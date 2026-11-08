@@ -26,7 +26,7 @@ describe("message grouping", () => {
         ];
 
         // Act
-        render(<MessageDisplay messages={messages} />);
+        render(<MessageDisplay messages={messages} onlineUserIds={new Set()} />);
 
         // Assert
         expect(hasHeader("first")).toBe(true);
@@ -47,9 +47,28 @@ describe("message grouping", () => {
         ];
 
         // Act
-        render(<MessageDisplay messages={messages} />);
+        render(<MessageDisplay messages={messages} onlineUserIds={new Set()} />);
 
         // Assert
         expect(hasHeader("second")).toBe(true);
+    });
+});
+
+
+describe("presence rings", () => {
+    it("passes the online ids to each message, so only the authors in the room get a green ring", () => {
+        // Arrange
+        const messages = [
+            chatMessage({ user: ALICE, text: "from alice", timestamp: T0 }),
+            chatMessage({ user: BOB, text: "from bob", timestamp: T0 + MINUTE })
+        ];
+
+        // Act
+        render(<MessageDisplay messages={messages} onlineUserIds={new Set([ALICE.id])} />);
+
+        // Assert
+        expect(screen.getAllByTitle("In the room")).toHaveLength(1);
+        expect(screen.getByTitle("In the room").querySelector("img")?.getAttribute("src")).toBe(ALICE.icon);
+        expect(screen.getAllByTitle("Not in the room")).toHaveLength(1);
     });
 });

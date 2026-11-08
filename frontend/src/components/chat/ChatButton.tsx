@@ -7,6 +7,7 @@ import type ChatMessage from "@shared/interfaces/ChatMessage";
 
 interface ChatButtonProps {
     messages: ChatMessage[];
+    onlineUserIds: Set<string>;
     notifications: number;
     clearNotifications: () => void;
     sendMessage: (msg: string) => void;
@@ -14,7 +15,7 @@ interface ChatButtonProps {
 }
 
 
-export default function ChatButton({ messages, notifications, clearNotifications, sendMessage, onOpenChange }: ChatButtonProps) {
+export default function ChatButton({ messages, onlineUserIds, notifications, clearNotifications, sendMessage, onOpenChange }: ChatButtonProps) {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -48,7 +49,7 @@ export default function ChatButton({ messages, notifications, clearNotifications
 
             {isOpen && (
                 <div className="fixed inset-x-4 top-20 mx-auto max-w-96 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:mx-0 sm:max-w-none sm:w-96 aspect-3/4 bg-neutral-900 border-white/40 border-1 rounded-lg p-2 shadow-lg z-10">
-                    <Chat messages={messages} sendMessage={sendMessage} />
+                    <Chat messages={messages} onlineUserIds={onlineUserIds} sendMessage={sendMessage} />
                 </div>
             )}
         </div>

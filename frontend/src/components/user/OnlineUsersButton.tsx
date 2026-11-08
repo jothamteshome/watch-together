@@ -37,7 +37,8 @@ export default function OnlineUsersButton({ users, selfUserId }: OnlineUsersButt
                     <ul className="flex flex-col gap-1">
                         {users.map((user) => (
                             <li key={user.id} className="flex items-center gap-2 p-1">
-                                <div className="w-7 shrink-0">
+                                {/* Everyone listed is in the room, so the ring is always green (same meaning as in chat) */}
+                                <div className="w-7 shrink-0 rounded-full border-2 border-green-500">
                                     <UserIcon src={user.icon} />
                                 </div>
                                 <p className="text-sm text-white break-all">

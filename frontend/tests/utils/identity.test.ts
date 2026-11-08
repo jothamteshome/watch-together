@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getOrCreateProfile, saveProfile } from "../../src/utils/identity";
+import { GENERATED_ICON_PREFIX, getOrCreateProfile, renameChanges, saveProfile } from "../../src/utils/identity";
 import { BACKEND_URL, OTHER_USER, SELF_USER, seedProfile, stubFetch } from "../support/helpers";
 
 
@@ -35,6 +35,33 @@ describe("getOrCreateProfile", () => {
         expect(fetchMock).toHaveBeenCalledExactlyOnceWith(`${BACKEND_URL}/v1/users/generate`);
         expect(profile).toEqual(OTHER_USER);
         expect(storedProfile()).toEqual(OTHER_USER);
+    });
+
+    it("fetches once when called again before the first call finishes, and both get the same profile", async () => {
+        // Arrange
+        const fetchMock = stubFetch({ "/v1/users/generate": { body: OTHER_USER } });
+
+        // Act
+        const [first, second] = await Promise.all([getOrCreateProfile(), getOrCreateProfile()]);
+
+        // Assert
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(second).toBe(first);
+        expect(storedProfile()).toEqual(first);
+    });
+
+    it("fetches again on the next call when the fetch failed", async () => {
+        // Arrange
+        stubFetch({ "/v1/users/generate": new Error("offline") });
+        await expect(getOrCreateProfile()).rejects.toThrow("offline");
+        const fetchMock = stubFetch({ "/v1/users/generate": { body: OTHER_USER } });
+
+        // Act
+        const profile = await getOrCreateProfile();
+
+        // Assert
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(profile).toEqual(OTHER_USER);
     });
 
     it.each([
@@ -75,5 +102,26 @@ describe("saveProfile", () => {
 
         // Act + Assert
         expect(() => saveProfile(SELF_USER)).not.toThrow();
+    });
+});
+
+describe("renameChanges", () => {
+    it("moves a generated icon to the new name, encoding it for the URL", () => {
+        // Arrange
+        const user = { ...SELF_USER, icon: `${GENERATED_ICON_PREFIX}OldName` };
+
+        // Act
+        const changes = renameChanges(user, "New Name & Co");
+
+        // Assert
+        expect(changes).toEqual({ username: "New Name & Co", icon: `${GENERATED_ICON_PREFIX}New%20Name%20%26%20Co` });
+    });
+
+    it("leaves a custom icon alone, sending only the name", () => {
+        // Act
+        const changes = renameChanges(SELF_USER, "New Name");
+
+        // Assert
+        expect(changes).toEqual({ username: "New Name" });
     });
 });
