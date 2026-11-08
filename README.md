@@ -34,7 +34,7 @@ A real-time collaborative platform to watch YouTube videos with friends. Create 
 | Layer | Technologies |
 |---|---|
 | **Frontend** | React 19, TypeScript, Vite, TailwindCSS 4, React Router 7 |
-| **Backend** | Node.js, Express 4, TypeScript, Socket.IO 4 |
+| **Backend** | Node.js, Express 5, TypeScript, Socket.IO 4 |
 | **Real-time** | WebSockets via Socket.IO |
 | **Video** | YouTube IFrame Player API, YouTube Data API v3 |
 | **Containerization** | Docker (multi-stage Node 24 build) |
